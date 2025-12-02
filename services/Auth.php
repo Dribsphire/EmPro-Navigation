@@ -61,7 +61,7 @@ class Auth {
 
             return [
                 'status' => 'denied',
-                'redirect' => '/navigation/public/admin/access_denied.php',
+                'redirect' => '/EmPro-Navigation/public/admin/access_denied.php',
                 'debug' => $this->debugLogs
             ];
         }
@@ -80,7 +80,7 @@ class Auth {
 
         return [
             'status' => 'success',
-            'redirect' => '/navigation/public/admin/admin_index.php',
+            'redirect' => '/EmPro-Navigation/public/admin/admin_index.php',
             'debug' => $this->debugLogs
         ];
     }
@@ -90,7 +90,7 @@ class Auth {
      */
     public function requireAdmin(): void {
         if (!$this->isAdmin()) {
-            header('Location: /navigation/public/admin/access_denied.php');
+            header('Location: /EmPro-Navigation/public/admin/access_denied.php');
             exit();
         }
     }
@@ -110,7 +110,7 @@ class Auth {
             session_destroy();
         }
 
-        header('Location: /navigation/public/admin_login.php');
+        header('Location: /EmPro-Navigation/public/admin_login.php');
         exit();
     }
 
