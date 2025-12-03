@@ -131,8 +131,8 @@ $attemptTime = $context['attempt_time'] ?? date('Y-m-d H:i:s');
         </dl>
 
         <div class="actions">
-            <a class="primary" href="/navigation/public/admin_login.php">Return to Admin Login</a>
-            <a class="secondary" href="/navigation/public/student_guest_login.php">Go to Student/Guest Portal</a>
+            <a class="primary" href="/EmPro-Navigation/public/admin_login.php">Return to Admin Login</a>
+            <a class="secondary" href="/EmPro-Navigation/public/student_guest_login.php">Go to Student/Guest Portal</a>
         </div>
     </section>
 </body>

@@ -123,9 +123,6 @@ try {
             o.description,
             o.location_lat,
             o.location_lng,
-            o.floor_level,
-            o.contact_number,
-            o.email,
             oc.category_id,
             oc.name as category_name,
             oi.image_path as marker_image

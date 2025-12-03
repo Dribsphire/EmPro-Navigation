@@ -159,8 +159,9 @@ main p{
   width: min(360px, calc(100% - 2rem));
   z-index: 1100;
   display: flex;
-  align-items: center;
   gap: 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .map-search input {
@@ -198,8 +199,8 @@ main p{
 }
 
 .map-search button {
-  float: right;
-  color: green;
+  float: right !important;
+  width: 35%;
 }
 
 /* Modal Styles */
@@ -357,6 +358,11 @@ main p{
 
 /* Responsive adjustments */
 @media(max-width: 800px) {
+
+  #map{
+    bottom: 65px;
+    max-width: 95% !important;
+  }
   .modal-content {
     margin: 10% auto;
     width: 95%;
@@ -365,6 +371,21 @@ main p{
   .coordinates {
     flex-direction: column;
     gap: 5px;
+  }
+
+  .map-search {
+    flex-direction: column;
+    align-items: stretch;
+    width: calc(100% - 2rem);
+  }
+
+  .map-search input {
+    width: 90%;
+  }
+
+  .map-search button {
+    width: 35%;
+    float: none;
   }
 }
 
@@ -379,6 +400,7 @@ main p{
     border: none;
     margin-bottom: 2em !important;
   }
+
   #sidebar{
     height: 60px;
     width: 100%;

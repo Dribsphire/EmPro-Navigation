@@ -173,7 +173,7 @@ $currentAdmin = $auth->getCurrentUser();
 
 /* Original styles */
 body { margin: 0; padding: 0; }
-#map { position: absolute; top: 5px; bottom: 25px; width: 98%; border-radius:20px; margin-left:10px;}
+#map { position: absolute; top: 5px; bottom: 25px; width: 98% !important; border-radius:20px; margin-left:10px;}
 .marker {
         display: block;
         border: none;
@@ -197,6 +197,20 @@ body { margin: 0; padding: 0; }
         #map { width: 100%; bottom: 65px; border-radius:0px;
             
     }
+    .modal{
+        display:none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 63%;
+        background-color: rgba(0, 0, 0, 0.5);
+        overflow: auto;
+        margin-top: 9rem;
+        border-radius: 24px;
+    }
+    
 
 }
 </style>
@@ -204,11 +218,14 @@ body { margin: 0; padding: 0; }
 <body>
 <?php include 'admin_nav.php'; ?>   
 <div class="container"> 
+<div class="map_buttons">
     <div class="map-search">
+        
         <label class="sr-only" for="building-search">Search buildings</label>
         <input id="building-search" list="building-list" placeholder="Search buildings..." autocomplete="off">
-        <button type="button" id="toggle-3d" aria-pressed="false">3D View</button><br>
+        <button type="button" id="toggle-3d" aria-pressed="false">3D View</button>
         <button type="button" id="add-office" aria-pressed="false">Add Office</button>
+       
         <datalist id="building-list">
             <option value="RDCAGIS">
             <option value="CCS office">
@@ -226,6 +243,7 @@ body { margin: 0; padding: 0; }
             <option value="Clinic">
         </datalist>
     </div>
+</div>
     <div id="map"></div>
 </div>
 <script src="../script/showlayout.js"></script>
@@ -846,7 +864,7 @@ body { margin: 0; padding: 0; }
         const addButton = this;
         // Disable the button to prevent multiple clicks
         addButton.disabled = true;
-        addButton.textContent = 'Click to select location';
+        addButton.textContent = 'Click for location';
         
         // Change cursor to pointer to indicate clickable area
         document.body.style.cursor = 'pointer';

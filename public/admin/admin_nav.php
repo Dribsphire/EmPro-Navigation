@@ -97,6 +97,14 @@
   </div>
 
   <style>
+    @media (max-width: 768px) {
+      .logout-trigger {
+        margin-top: 18px !important;
+      }
+      .logout-modal__dialog {
+        width: min(75vw, 361px) !important;
+      }
+    }
     .logout-trigger {
       background: none;
       border: none;
