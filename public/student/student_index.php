@@ -66,6 +66,8 @@ body { margin: 0; padding: 0; }
     <div id="map"></div>
 </div>
 <script src="../script/showlayout.js"></script>
+<script src="../script/navigation_tracker.js"></script>
+<script src="../script/realtime_office_sync.js"></script>
 <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiZHJpYnNwaGlyZSIsImEiOiJjbWllamJrdzEwM2ZrM3FwczFyY2h5cGRwIn0.SdWyL8hhdYbwMvEQ6wsaAQ';
     const mediaQuery = window.matchMedia('(max-width: 768px)');
@@ -139,229 +141,197 @@ body { margin: 0; padding: 0; }
         });
     });
 
-    const buildingMarkers = [
-        {
-            name: 'RDCAGIS',
-            lngLat: [122.940169,10.643113],
-            image: 'RDCAGIS.jpg',
-            popup: 'RDCAGIS second floor',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'CCS office',
-            lngLat: [122.940169,10.642949],
-            image: 'ccs.png',
-            popup: 'College of Computer studies (CCS) office second floor',
-            iconSize: [40, 40],
-            gallery: [
-                '../../building_content/ccs/ccs1.jpg',
-                '../../building_content/ccs/ccs2.jpg',
-                '../../building_content/ccs/ccs3.jpg',
-                '../../building_content/ccs/ccs4.jpg'
-            ]
-        },
-        {
-            name: 'Canteen',
-            lngLat: [122.939439,10.641863],
-            image: 'canteen.jpg',
-            popup: 'Canteen',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Library',
-            lngLat: [122.938431,10.642654],
-            image: 'library.jpg',
-            popup: 'Library',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Registrar Office',
-            lngLat: [122.938522,10.642686],
-            image: 'registrar.jpg',
-            popup: 'Registrar office',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'OSA',
-            lngLat: [122.938817,10.641921],
-            image: 'osa.jpg',
-            popup: 'Office of Student Affairs (OSA)',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Cashier Office',
-            lngLat: [122.938398,10.642491],
-            image: 'cashier.jpg',
-            popup: 'Cashier',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Audio Visual Room (AVR)',
-            lngLat: [122.938677,10.642781],
-            image: 'avr.png',
-            popup: 'Audio Visual Room (AVR)',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'COE Office',
-            lngLat: [122.939487,10.641937],
-            image: 'coe.png',
-            popup: 'College of Engineering (COE) Office second floor',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'COED Office',
-            lngLat: [122.939208,10.642406],
-            image: 'coed.png',
-            popup: 'College of Education (COED) Office',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'CIT Office',
-            lngLat: [122.939251,10.642248],
-            image: 'cit.png',
-            popup: 'College of Industrial Technology (CIT) Office',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Technopacer Office',
-            lngLat: [122.938645,10.642027],
-            image: 'techno.jpg',
-            popup: 'The Technopacer Office',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Student Government Office (CUSG)',
-            lngLat: [122.938581,10.642074],
-            image: 'cusg.jpg',
-            popup: 'Student Government Office (USG)',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Clinic Office',
-            lngLat: [122.938935,10.641863],
-            image: 'clinic.jpg',
-            popup: 'Clinic',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Accounting Office',
-            lngLat: [122.938608,10.642412],
-            image: 'accounting.jpg',
-            popup: 'Accounting Office',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'IGP Office',
-            lngLat: [122.939128,10.642296],
-            image: 'igp.jpg',
-            popup: 'Income Generating Project Office second floor (IGP)',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'IGP Office',
-            lngLat: [122.939128,10.642296],
-            image: 'igp.jpg',
-            popup: 'Income Generating Project Office second floor (IGP)',
-            iconSize: [40, 40]
-        },
-        {
-            name: 'Guidance Office',
-            lngLat: [122.938581,10.642760],
-            image: 'guidance.jpg',
-            popup: 'Guidance Office',
-            iconSize: [40, 40]
+    // Global array to store all building markers
+    let allBuildingMarkers = [];
+    window.allBuildingMarkers = allBuildingMarkers; // Make it globally accessible
+
+    // Function to create markers from building/office data
+    function createMarkers(buildings) {
+        if (!buildings || buildings.length === 0) {
+            console.log('No buildings to create markers for');
+            return;
         }
-    ];
-
-    buildingMarkers.forEach((building) => {
-        const { lngLat, image, popup, iconSize, name } = building;
-        const gallery = building.gallery ?? [];
-        const el = document.createElement('div');
-        const width = iconSize[0];
-        const height = iconSize[1];
-        el.className = 'marker';
-        el.style.backgroundImage = `url(../../buildings/${image})`;
-        el.style.width = `${width}px`;
-        el.style.height = `${height}px`;
-        el.style.backgroundSize = 'cover';
-        el.tabIndex = 0;
-        el.ariaLabel = `Marker for ${name}`;
-
-        el.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                window.alert(popup);
+        
+        console.log(`Creating ${buildings.length} markers...`);
+        
+        buildings.forEach((building) => {
+            const { lngLat, image, popup, iconSize, name } = building;
+            const gallery = building.gallery ?? [];
+            
+            if (!lngLat || !Array.isArray(lngLat) || lngLat.length !== 2) {
+                console.error('Invalid lngLat for building:', name, lngLat);
+                return;
             }
-        });
+            
+            console.log(`Creating marker for: ${name} at [${lngLat[0]}, ${lngLat[1]}]`);
+            
+            // Determine image path - handle both database paths and local paths
+            let imagePath = image;
+            if (image.startsWith('buildings/')) {
+                imagePath = `../../${image}`;
+            } else if (image.startsWith('building_content/')) {
+                imagePath = `../../${image}`;
+            } else if (!image.startsWith('../')) {
+                imagePath = `../../buildings/${image}`;
+            }
+            
+            const el = document.createElement('div');
+            const width = iconSize[0] || 40;
+            const height = iconSize[1] || 40;
+            el.className = 'marker';
+            el.style.backgroundImage = `url(${imagePath})`;
+            el.style.width = `${width}px`;
+            el.style.height = `${height}px`;
+            el.style.backgroundSize = 'cover';
+            el.tabIndex = 0;
+            el.ariaLabel = `Marker for ${name}`;
 
-        const popupHTML = `
-            <div style="padding: 8px 0;">
-                <p style="margin: 0 0 10px 0; font-weight: bold;">${popup}</p>
-                <div style="display: flex; gap: 8px; flex-direction: column;">
-                    <button class="start-navigation-btn" data-building="${name}" style="
-                        width: 100%;
-                        padding: 8px 16px;
-                        background-color: #4f46e5;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        font-size: 14px;
-                        transition: background-color 0.2s ease;
-                    " onmouseover="this.style.backgroundColor='#4338ca'" onmouseout="this.style.backgroundColor='#4f46e5'">
-                        Start Navigation
-                    </button>
-                    <button class="view-content-btn" data-building="${name}" data-gallery='${JSON.stringify(gallery)}' style="
-                        width: 100%;
-                        padding: 8px 16px;
-                        background-color: #10b981;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        font-size: 14px;
-                        transition: background-color 0.2s ease;
-                    " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
-                        View Content
-                    </button>
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    window.alert(popup);
+                }
+            });
+
+            // Format gallery paths
+            const formattedGallery = gallery.map(img => {
+                if (img.startsWith('building_content/')) {
+                    return `../../${img}`;
+                }
+                return img.startsWith('../') ? img : `../../${img}`;
+            });
+
+            const popupHTML = `
+                <div style="padding: 8px 0;">
+                    <p style="margin: 0 0 10px 0; font-weight: bold;">${popup}</p>
+                    <div style="display: flex; gap: 8px; flex-direction: column;">
+                        <button class="start-navigation-btn" data-building="${name}" data-office-id="${building.office_id || ''}" style="
+                            width: 100%;
+                            padding: 8px 16px;
+                            background-color: #4f46e5;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: background-color 0.2s ease;
+                        " onmouseover="this.style.backgroundColor='#4338ca'" onmouseout="this.style.backgroundColor='#4f46e5'">
+                            Start Navigation
+                        </button>
+                        ${formattedGallery.length > 0 ? `
+                        <button class="view-content-btn" data-building="${name}" data-gallery='${JSON.stringify(formattedGallery)}' style="
+                            width: 100%;
+                            padding: 8px 16px;
+                            background-color: #10b981;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: background-color 0.2s ease;
+                        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+                            View Content
+                        </button>` : ''}
+                    </div>
                 </div>
-            </div>
-        `;
-        const markerPopup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHTML);
-        
-        markerPopup.on('open', () => {
-            const contentBtn = markerPopup._content.querySelector('.view-content-btn');
-            const navBtn = markerPopup._content.querySelector('.start-navigation-btn');
+            `;
+            const markerPopup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHTML);
             
-            if (contentBtn) {
-                contentBtn.addEventListener('click', () => {
-                    const buildingName = contentBtn.getAttribute('data-building');
-                    const galleryData = contentBtn.getAttribute('data-gallery');
-                    const gallery = galleryData ? JSON.parse(galleryData) : [];
-                    if (typeof showBuildingLayout === 'function') {
-                        showBuildingLayout(buildingName, gallery);
-                    }
-                });
-            }
+            markerPopup.on('open', () => {
+                const contentBtn = markerPopup._content.querySelector('.view-content-btn');
+                const navBtn = markerPopup._content.querySelector('.start-navigation-btn');
+                
+                if (contentBtn) {
+                    contentBtn.addEventListener('click', () => {
+                        try {
+                            const gallery = JSON.parse(contentBtn.dataset.gallery);
+                            if (gallery && gallery.length > 0) {
+                                showBuildingLayout(building.name, gallery);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing gallery data:', e);
+                        }
+                    });
+                }
+                
+                if (navBtn) {
+                    navBtn.addEventListener('click', () => {
+                        const buildingToNavigate = allBuildingMarkers.find(b => 
+                            b.name === navBtn.dataset.building || 
+                            (b.office_id && b.office_id == navBtn.dataset.officeId)
+                        );
+                        if (buildingToNavigate && window.navigationTracker) {
+                            const officeData = {
+                                ...buildingToNavigate,
+                                office_id: buildingToNavigate.office_id || null,
+                                radius: buildingToNavigate.radius || 50
+                            };
+                            window.navigationTracker.startNavigation(officeData);
+                        } else {
+                            console.log('Start navigation to:', navBtn.dataset.building);
+                        }
+                    });
+                }
+            });
             
-            if (navBtn) {
-                navBtn.addEventListener('click', () => {
-                    const buildingName = navBtn.getAttribute('data-building');
-                    console.log('Start navigation to:', buildingName);
-                });
-            }
+            const markerInstance = new mapboxgl.Marker(el)
+                .setLngLat(lngLat)
+                .setPopup(markerPopup)
+                .addTo(map);
+
+            building.markerInstance = markerInstance;
+            building.markerPopup = markerPopup;
+            allBuildingMarkers.push(building);
+            window.allBuildingMarkers = allBuildingMarkers; // Update global reference
         });
         
-        const markerInstance = new mapboxgl.Marker(el)
-            .setLngLat(lngLat)
-            .setPopup(markerPopup)
-            .addTo(map);
+        console.log(`Successfully created ${buildings.length} markers. Total markers: ${allBuildingMarkers.length}`);
+    }
 
-        building.markerInstance = markerInstance;
-        building.markerPopup = markerPopup;
-    });
+    // Load offices from database
+    async function loadOfficesFromDatabase() {
+        try {
+            console.log('Fetching offices from API...');
+            const response = await fetch('../../api/get_offices_public.php');
+            console.log('API Response status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('API Response text (first 200 chars):', responseText.substring(0, 200));
+            
+            if (response.ok) {
+                try {
+                    const data = JSON.parse(responseText);
+                    console.log('API Response data:', data);
+                    
+                    if (data.status === 'success' && data.offices && data.offices.length > 0) {
+                        console.log(`Loaded ${data.offices.length} offices from database:`, data.offices);
+                        createMarkers(data.offices);
+                        
+                        // Initialize real-time sync with loaded offices
+                        if (window.officeSync) {
+                            window.officeSync.initialize(data.offices);
+                        }
+                        
+                        return data.offices;
+                    } else {
+                        console.log('No offices found in database or empty array', data);
+                        return [];
+                    }
+                } catch (parseError) {
+                    console.error('Failed to parse JSON response:', parseError);
+                    console.error('Response was:', responseText);
+                    return [];
+                }
+            } else {
+                console.error('Failed to load offices:', response.status, responseText);
+                return [];
+            }
+        } catch (error) {
+            console.error('Error loading offices:', error);
+            return [];
+        }
+    }
 
     const searchInput = document.getElementById('building-search');
     let activePopup;
@@ -375,7 +345,7 @@ body { margin: 0; padding: 0; }
             return;
         }
 
-        const match = buildingMarkers.find((building) =>
+        const match = allBuildingMarkers.find((building) =>
             building.name.toLowerCase().includes(query)
         );
 
@@ -407,9 +377,73 @@ body { margin: 0; padding: 0; }
             }
         });
     }
-    map.on('load',()=>{
+
+    // Global navigation tracker
+    let navigationTracker = null;
+    let officeSync = null;
+    
+    // Load offices from database and initialize navigation tracker
+    async function loadOfficesAndInitTracker() {
+        try {
+            const response = await fetch('../../api/get_offices_public.php');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'success' && data.offices && data.offices.length > 0) {
+                    // Initialize navigation tracker with database offices
+                    navigationTracker = new NavigationTracker(map, data.offices);
+                    window.navigationTracker = navigationTracker;
+                    
+                    // Initialize real-time sync
+                    officeSync = new RealtimeOfficeSync(
+                        map,
+                        createMarkers, // Callback to create new markers
+                        (offices) => {
+                            // Callback to update navigation tracker
+                            if (window.navigationTracker) {
+                                // Update navigation tracker with new offices
+                                offices.forEach(office => {
+                                    const radius = office.radius || 50;
+                                    if (!window.navigationTracker.radiusCircles.has(office.office_id || office.name)) {
+                                        window.navigationTracker.addRadiusCircle(office, radius);
+                                    }
+                                });
+                            }
+                        }
+                    );
+                    officeSync.initialize(data.offices);
+                    window.officeSync = officeSync;
+                    
+                    // Start real-time polling
+                    officeSync.start();
+                } else {
+                    console.log('No offices found in database');
+                }
+            } else {
+                console.error('Failed to load offices for navigation tracker');
+            }
+        } catch (error) {
+            console.error('Error loading offices for navigation tracker:', error);
+        }
+    }
+
+    // Check if map is already loaded (sometimes it loads very quickly)
+    if (map.loaded()) {
+        console.log('Map already loaded, loading offices immediately');
+        setTimeout(async () => {
+            await loadOfficesFromDatabase();
+            await loadOfficesAndInitTracker();
+        }, 500);
+    }
+
+    map.on('load', async ()=>{
         //set the default atmosphere style
         map.setFog({});
+        
+        // Load offices from database
+        await loadOfficesFromDatabase();
+        
+        // Initialize navigation tracker and real-time sync
+        await loadOfficesAndInitTracker();
         //add a source layer for the school boundaries 
         map.addSource('chmsu', {
         type: 'geojson',
