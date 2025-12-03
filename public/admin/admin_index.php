@@ -223,8 +223,11 @@ body { margin: 0; padding: 0; }
         
         <label class="sr-only" for="building-search">Search buildings</label>
         <input id="building-search" list="building-list" placeholder="Search buildings..." autocomplete="off">
-        <button type="button" id="toggle-3d" aria-pressed="false">3D View</button>
         <button type="button" id="add-office" aria-pressed="false">Add Office</button>
+        <button type="button" id="drill_alert" aria-pressed="false">Drill Alert</button>
+        <button type="button" id="toggle-3d" aria-pressed="false">3D View</button>
+        
+        
        
         <datalist id="building-list">
             <option value="RDCAGIS">

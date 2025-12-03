@@ -705,7 +705,7 @@ $tempPasswords = $_SESSION['temp_passwords'];
     }
 
     // Password change form submission
-    document.getElementById('changePasswordForm')?.addEventListener('submit', function(e) {
+    document.getElementById('changePasswordForm')?.addEventListener('submit', async function(e) {
       e.preventDefault();
 
       const newPassword = document.getElementById('newPassword').value;
@@ -719,13 +719,35 @@ $tempPasswords = $_SESSION['temp_passwords'];
 
       errorElement.style.display = 'none';
 
-      // Here you would typically make an AJAX call to update the password
-      console.log(`Updating password for student ${currentStudentId}`);
+      try {
+        const response = await fetch('../../api/update_student_password.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            school_id: currentStudentId,
+            new_password: newPassword
+          })
+        });
 
-      // Show success message
-      alert('Password updated successfully!');
-      closeModal('changePasswordModal');
-      this.reset();
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          // Clear the temp password from the row since it's been changed
+          if (currentRow) {
+            currentRow.dataset.tempPassword = '';
+          }
+          alert('Password updated successfully!');
+          closeModal('changePasswordModal');
+          this.reset();
+        } else {
+          alert('Error: ' + (result.message || 'Failed to update password'));
+        }
+      } catch (error) {
+        console.error('Error updating password:', error);
+        alert('Error: Failed to update password. Please try again.');
+      }
     });
 
     // Toggle password visibility

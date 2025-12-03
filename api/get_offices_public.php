@@ -30,7 +30,7 @@ foreach ($offices as $office) {
         'gallery' => $gallery,
         'category_id' => (int)$office['category_id'],
         'category_name' => $office['category_name'] ?? '',
-        'radius' => 50 // Default radius in meters (can be added to database later)
+        'radius' => 5 
     ];
 }
 

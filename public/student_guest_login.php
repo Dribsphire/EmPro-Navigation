@@ -33,25 +33,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             LIMIT 1
         ";
 
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
+        try {
+            $stmt = $conn->prepare($sql);
             $stmt->bindParam(':school_id', $school_id);
             $stmt->execute();
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($user && password_verify($password, $user['password'])) {
-                $_SESSION['user_type'] = 'student';
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['school_id'] = $user['school_id'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['student_id'] = $user['student_id'];
+            if ($user) {
+                if (password_verify($password, $user['password'])) {
+                    $_SESSION['user_type'] = 'student';
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['school_id'] = $user['school_id'];
+                    $_SESSION['full_name'] = $user['full_name'];
+                    $_SESSION['student_id'] = $user['student_id'];
 
-                header('Location: student/student_index.php');
-                exit;
+                    header('Location: student/student_index.php');
+                    exit;
+                } else {
+                    $login_error = 'Invalid password.';
+                }
             } else {
-                $login_error = 'Invalid School ID or password.';
+                $login_error = 'Student with this School ID not found. Please register first.';
             }
-        } else {
+        } catch (PDOException $e) {
+            error_log('Student login error: ' . $e->getMessage());
             $login_error = 'Login temporarily unavailable.';
         }
     }

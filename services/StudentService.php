@@ -223,6 +223,34 @@ class StudentService {
         }
     }
 
+    /**
+     * Update a student's password
+     */
+    public function updatePassword(string $schoolId, string $newPassword): bool {
+        if (strlen($newPassword) < 8) {
+            throw new RuntimeException('Password must be at least 8 characters.');
+        }
+
+        // Get user_id from students table
+        $stmt = $this->conn->prepare("SELECT user_id FROM students WHERE school_id = :school_id LIMIT 1");
+        $stmt->execute([':school_id' => $schoolId]);
+        $userId = $stmt->fetchColumn();
+
+        if (!$userId) {
+            throw new RuntimeException('Student not found.');
+        }
+
+        $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
+
+        $updateStmt = $this->conn->prepare("UPDATE users SET password = :password, updated_at = NOW() WHERE user_id = :user_id");
+        $updateStmt->execute([
+            ':password' => $passwordHash,
+            ':user_id' => $userId
+        ]);
+
+        return $updateStmt->rowCount() > 0;
+    }
+
     private function studentExists(string $schoolId): bool {
         $stmt = $this->conn->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id");
         $stmt->execute([':school_id' => $schoolId]);

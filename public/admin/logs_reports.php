@@ -1,6 +1,124 @@
 <?php
-session_start();
-// Add your session check here if needed
+require_once __DIR__ . '/../../services/Auth.php';
+require_once __DIR__ . '/../../services/Database.php';
+
+$auth = new Auth();
+$auth->requireAdmin();
+
+$database = new Database();
+$conn = $database->getConnection();
+
+// Pagination settings
+$itemsPerPage = 15;
+$currentPage = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$offset = ($currentPage - 1) * $itemsPerPage;
+
+// Filter settings
+$timeFilter = $_GET['time'] ?? 'month';
+$roleFilter = $_GET['role'] ?? 'all';
+$searchQuery = $_GET['search'] ?? '';
+
+// Build date filter condition (with alias for JOINed queries)
+$dateCondition = '';
+$dateConditionSimple = ''; // Without alias for simple queries
+switch ($timeFilter) {
+    case 'week':
+        $dateCondition = "AND nl.start_time >= DATE_SUB(NOW(), INTERVAL 1 WEEK)";
+        $dateConditionSimple = "AND start_time >= DATE_SUB(NOW(), INTERVAL 1 WEEK)";
+        break;
+    case 'month':
+        $dateCondition = "AND nl.start_time >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+        $dateConditionSimple = "AND start_time >= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+        break;
+    case 'year':
+        $dateCondition = "AND nl.start_time >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+        $dateConditionSimple = "AND start_time >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
+        break;
+    case 'all':
+    default:
+        $dateCondition = '';
+        $dateConditionSimple = '';
+        break;
+}
+
+// Build role filter condition
+$roleCondition = '';
+if ($roleFilter === 'student') {
+    $roleCondition = "AND nl.user_id IS NOT NULL";
+} elseif ($roleFilter === 'guest') {
+    $roleCondition = "AND nl.guest_id IS NOT NULL";
+}
+
+// Build search condition
+$searchCondition = '';
+$searchParams = [];
+if (!empty($searchQuery)) {
+    $searchCondition = "AND (
+        o.office_name LIKE :search 
+        OR s.full_name LIKE :search 
+        OR g.full_name LIKE :search
+    )";
+    $searchParams[':search'] = '%' . $searchQuery . '%';
+}
+
+// Get total count for pagination
+$countSql = "
+    SELECT COUNT(*) as total
+    FROM navigation_logs nl
+    LEFT JOIN offices o ON nl.office_id = o.office_id
+    LEFT JOIN students s ON nl.user_id = s.user_id
+    LEFT JOIN guests g ON nl.guest_id = g.guest_id
+    WHERE 1=1 $dateCondition $roleCondition $searchCondition
+";
+
+$countStmt = $conn->prepare($countSql);
+foreach ($searchParams as $key => $value) {
+    $countStmt->bindValue($key, $value);
+}
+$countStmt->execute();
+$totalLogs = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+$totalPages = ceil($totalLogs / $itemsPerPage);
+
+// Fetch navigation logs
+$sql = "
+    SELECT 
+        nl.log_id,
+        nl.start_time,
+        nl.end_time,
+        nl.status,
+        nl.user_id,
+        nl.guest_id,
+        o.office_id,
+        o.office_name,
+        oi.image_path as office_image,
+        CASE 
+            WHEN nl.user_id IS NOT NULL THEN s.full_name
+            WHEN nl.guest_id IS NOT NULL THEN g.full_name
+            ELSE 'Unknown'
+        END as user_name,
+        CASE 
+            WHEN nl.user_id IS NOT NULL THEN 'Student'
+            WHEN nl.guest_id IS NOT NULL THEN 'Guest'
+            ELSE 'Unknown'
+        END as user_role
+    FROM navigation_logs nl
+    LEFT JOIN offices o ON nl.office_id = o.office_id
+    LEFT JOIN office_images oi ON o.office_id = oi.office_id AND oi.is_primary = 1
+    LEFT JOIN students s ON nl.user_id = s.user_id
+    LEFT JOIN guests g ON nl.guest_id = g.guest_id
+    WHERE 1=1 $dateCondition $roleCondition $searchCondition
+    ORDER BY nl.start_time DESC
+    LIMIT :limit OFFSET :offset
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->bindValue(':limit', $itemsPerPage, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+foreach ($searchParams as $key => $value) {
+    $stmt->bindValue($key, $value);
+}
+$stmt->execute();
+$logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,23 +162,41 @@ session_start();
       max-width: 300px;
       width: 100%;
     }
-    .badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    text-transform: capitalize;
-  }
-  .badge[data-role="Student"] {
-    background-color: #e3f2fd;
-    color: #1976d2;
-  }
 
-  .badge[data-role="Guest"] {
-    background-color: #e8f5e9;
-    color: #388e3c;
-  }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+
+    .badge-student {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .badge-guest {
+      background-color: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .badge-completed {
+      background-color: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .badge-cancelled {
+      background-color: #ffebee;
+      color: #c62828;
+    }
+
+    .badge-in_progress {
+      background-color: #fff3e0;
+      color: #ef6c00;
+    }
+
     .search-container i {
       position: absolute;
       left: 12px;
@@ -78,20 +214,20 @@ session_start();
       background: #2b2c33;
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
+      overflow-x: auto;
     }
 
     table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed; /* Add this for consistent column widths */
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
     }
 
     th, td {
       padding: 1rem;
       text-align: left;
       border-bottom: 1px solid var(--line-clr);
-      vertical-align: middle; /* Ensure vertical alignment in cells */
+      vertical-align: middle;
     }
 
     th {
@@ -104,20 +240,24 @@ session_start();
       border-bottom: none;
     }
 
+    tr:hover {
+      background-color: var(--hover-clr);
+    }
+
     .office-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-width: 180px; /* Set a minimum width for office column */
-  }
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 180px;
+    }
 
     .office-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0; /* Prevent image from shrinking */
-  }
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
 
     .pagination {
       display: flex;
@@ -127,7 +267,7 @@ session_start();
       flex-wrap: wrap;
     }
 
-    .pagination button {
+    .pagination a, .pagination span {
       padding: 0.5rem 1rem;
       border: 1px solid var(--line-clr);
       background: var(--base-clr);
@@ -135,16 +275,22 @@ session_start();
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
+      text-decoration: none;
     }
 
-    .pagination button.active {
+    .pagination a.active, .pagination span.active {
       background: var(--accent-clr);
       color: white;
       border-color: var(--accent-clr);
     }
 
-    .pagination button:hover:not(.active) {
+    .pagination a:hover:not(.active) {
       background: var(--hover-clr);
+    }
+
+    .pagination span.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .btn-export {
@@ -162,6 +308,39 @@ session_start();
 
     .btn-export:hover {
       background: #218838;
+    }
+
+    .stats-summary {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: var(--base-clr);
+      border: 1px solid var(--line-clr);
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      min-width: 150px;
+    }
+
+    .stat-card h3 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: var(--accent-clr);
+    }
+
+    .stat-card p {
+      margin: 0.25rem 0 0;
+      color: var(--secondary-text-clr);
+      font-size: 0.9rem;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 3rem;
+      color: var(--secondary-text-clr);
     }
 
     /* Modal Styles */
@@ -245,80 +424,158 @@ session_start();
   <?php include 'admin_nav.php'; ?>
   
   <main>
-   
-      <div class="page-header">
-        <h1>Logs & Reports</h1>
-        <button class="btn-export" onclick="openExportModal()">
-          <i class="fas fa-file-export"></i> Export
-        </button>
-      </div>
+    <div class="page-header">
+      <h1>Logs & Reports</h1>
+      <button class="btn-export" onclick="openExportModal()">
+        <i class="fas fa-file-export"></i> Export
+      </button>
+    </div>
 
+    <div class="stats-summary">
+      <div class="stat-card">
+        <h3><?= $totalLogs ?></h3>
+        <p>Total Navigations</p>
+      </div>
+      <?php
+      // Get completed count
+      $completedSql = "SELECT COUNT(*) as count FROM navigation_logs WHERE status = 'completed' $dateConditionSimple";
+      $completedStmt = $conn->query($completedSql);
+      $completedCount = $completedStmt->fetch(PDO::FETCH_ASSOC)['count'];
+      ?>
+      <div class="stat-card">
+        <h3><?= $completedCount ?></h3>
+        <p>Completed</p>
+      </div>
+      <?php
+      // Get unique visitors count
+      $visitorsSql = "SELECT COUNT(DISTINCT COALESCE(user_id, guest_id)) as count FROM navigation_logs WHERE 1=1 $dateConditionSimple";
+      $visitorsStmt = $conn->query($visitorsSql);
+      $visitorsCount = $visitorsStmt->fetch(PDO::FETCH_ASSOC)['count'];
+      ?>
+      <div class="stat-card">
+        <h3><?= $visitorsCount ?></h3>
+        <p>Unique Visitors</p>
+      </div>
+    </div>
+
+    <form method="GET" id="filterForm">
       <div class="filters-container">
         <div class="filter-group">
           <label for="timeFilter">Filter by:</label>
-          <select id="timeFilter" class="form-control" onchange="filterLogs()">
-            <option value="week">This Week</option>
-            <option value="month" selected>This Month</option>
-            <option value="year">This Year</option>
-            <option value="all">All Time</option>
+          <select id="timeFilter" name="time" class="form-control" onchange="document.getElementById('filterForm').submit()">
+            <option value="week" <?= $timeFilter === 'week' ? 'selected' : '' ?>>This Week</option>
+            <option value="month" <?= $timeFilter === 'month' ? 'selected' : '' ?>>This Month</option>
+            <option value="year" <?= $timeFilter === 'year' ? 'selected' : '' ?>>This Year</option>
+            <option value="all" <?= $timeFilter === 'all' ? 'selected' : '' ?>>All Time</option>
           </select>
         </div>
 
         <div class="filter-group">
           <label for="roleFilter">Role:</label>
-          <select id="roleFilter" class="form-control" onchange="filterLogs()">
-            <option value="all">All Roles</option>
-            <option value="student">Students</option>
-            <option value="guest">Guests</option>
+          <select id="roleFilter" name="role" class="form-control" onchange="document.getElementById('filterForm').submit()">
+            <option value="all" <?= $roleFilter === 'all' ? 'selected' : '' ?>>All Roles</option>
+            <option value="student" <?= $roleFilter === 'student' ? 'selected' : '' ?>>Students</option>
+            <option value="guest" <?= $roleFilter === 'guest' ? 'selected' : '' ?>>Guests</option>
           </select>
         </div>
 
         <div class="search-container">
           <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" class="form-control" placeholder="Search logs..." onkeyup="filterLogs()">
+          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search logs..." value="<?= htmlspecialchars($searchQuery) ?>">
         </div>
+        <button type="submit" class="btn-export" style="background: var(--accent-clr);">
+          <i class="fas fa-filter"></i> Apply
+        </button>
       </div>
+    </form>
 
-      <div class="table-container">
-        <table>
-          <thead>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>User</th>
+            <th>Role</th>
+            <th>Office</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="logsTableBody">
+          <?php if (empty($logs)): ?>
             <tr>
-              <td>1</td>
-              <td>John Doe</td>
-              <td><span class="badge" data-role="Student">Student</span></td>
-              <td class="office-cell">
-                <img src="../../buildings/ccs.png" alt="CCS" class="office-avatar" onerror="this.src='../../buildings/default.png'">
-                <span>CCS Office</span>
+              <td colspan="7" class="no-data">
+                <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                No navigation logs found.
               </td>
-              <td>2023-11-29</td>
-              <td>14:30:45</td>
             </tr>
-            <tr>
-              <td>2</td>
-              <td>Jane Smith</td>
-              <td><span class="badge" data-role="Guest">Guest</span></td>
-              <td class="office-cell">
-                <img src="../../buildings/cit.png" alt="CIT" class="office-avatar" onerror="this.src='../../buildings/default.png'">
-                <span>CIT Office</span>
-              </td>
-              <td>2023-11-29</td>
-              <td>15:15:22</td>
-            </tr>
-            <!-- Add more rows as needed -->
-          </tbody>
-        </table>
+          <?php else: ?>
+            <?php foreach ($logs as $index => $log): ?>
+              <tr>
+                <td><?= $offset + $index + 1 ?></td>
+                <td><?= htmlspecialchars($log['user_name']) ?></td>
+                <td>
+                  <span class="badge badge-<?= strtolower($log['user_role']) ?>">
+                    <?= htmlspecialchars($log['user_role']) ?>
+                  </span>
+                </td>
+                <td class="office-cell">
+                  <?php 
+                    $officeImage = $log['office_image'] ? '../../' . $log['office_image'] : '../../buildings/default.png';
+                  ?>
+                  <img src="<?= htmlspecialchars($officeImage) ?>" alt="<?= htmlspecialchars($log['office_name'] ?? 'Unknown') ?>" class="office-avatar" onerror="this.src='../../buildings/default.png'">
+                  <span><?= htmlspecialchars($log['office_name'] ?? 'Unknown Office') ?></span>
+                </td>
+                <td><?= date('Y-m-d', strtotime($log['start_time'])) ?></td>
+                <td><?= date('H:i:s', strtotime($log['start_time'])) ?></td>
+                <td>
+                  <span class="badge badge-<?= $log['status'] ?>">
+                    <?= ucfirst(str_replace('_', ' ', $log['status'])) ?>
+                  </span>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+      </table>
 
-        <div class="pagination" id="pagination">
-          <button onclick="changePage(1)">First</button>
-          <button onclick="changePage(currentPage - 1)">Previous</button>
-          <button class="active">1</button>
-          <button>2</button>
-          <button>3</button>
-          <button onclick="changePage(currentPage + 1)">Next</button>
-          <button onclick="changePage(5)">Last</button>
+      <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+          <?php
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $queryString = http_build_query($queryParams);
+            $queryString = $queryString ? '&' . $queryString : '';
+          ?>
+          
+          <?php if ($currentPage > 1): ?>
+            <a href="?page=1<?= $queryString ?>">First</a>
+            <a href="?page=<?= $currentPage - 1 ?><?= $queryString ?>">Previous</a>
+          <?php else: ?>
+            <span class="disabled">First</span>
+            <span class="disabled">Previous</span>
+          <?php endif; ?>
+
+          <?php
+            $startPage = max(1, $currentPage - 2);
+            $endPage = min($totalPages, $currentPage + 2);
+            
+            for ($i = $startPage; $i <= $endPage; $i++):
+          ?>
+            <a href="?page=<?= $i ?><?= $queryString ?>" class="<?= $i === $currentPage ? 'active' : '' ?>"><?= $i ?></a>
+          <?php endfor; ?>
+
+          <?php if ($currentPage < $totalPages): ?>
+            <a href="?page=<?= $currentPage + 1 ?><?= $queryString ?>">Next</a>
+            <a href="?page=<?= $totalPages ?><?= $queryString ?>">Last</a>
+          <?php else: ?>
+            <span class="disabled">Next</span>
+            <span class="disabled">Last</span>
+          <?php endif; ?>
         </div>
-      </div>
-    
+      <?php endif; ?>
+    </div>
   </main>
 
   <!-- Export Modal -->
@@ -331,12 +588,9 @@ session_start();
       <div class="modal-body">
         <div class="form-group">
           <label for="exportMonth">Select Month:</label>
-          <input type="month" id="exportMonth" class="form-control" value="<?php echo date('Y-m'); ?>">
+          <input type="month" id="exportMonth" class="form-control" value="<?= date('Y-m') ?>">
         </div>
         <div class="export-options">
-          <button class="export-btn pdf" onclick="exportData('pdf')">
-            <i class="fas fa-file-pdf"></i> Export as PDF
-          </button>
           <button class="export-btn csv" onclick="exportData('csv')">
             <i class="fas fa-file-csv"></i> Export as CSV
           </button>
@@ -346,30 +600,6 @@ session_start();
   </div>
 
   <script>
-    let currentPage = 1;
-    const itemsPerPage = 10; // Adjust as needed
-
-    // Sample data - replace with actual data from your backend
-    const sampleLogs = [
-      {
-        id: 1,
-        fullName: 'John Doe',
-        role: 'Student',
-        office: { name: 'CCS Office', image: '../../buildings/ccs.png' },
-        date: '2023-11-29',
-        time: '14:30:45'
-      },
-      {
-        id: 2,
-        fullName: 'Jane Smith',
-        role: 'Guest',
-        office: { name: 'Registrar\'s Office', image: '../../buildings/registrar.png' },
-        date: '2023-11-29',
-        time: '15:15:22'
-      }
-      // Add more sample data as needed
-    ];
-
     function openExportModal() {
       document.getElementById('exportModal').style.display = 'flex';
       document.body.style.overflow = 'hidden';
@@ -380,63 +610,11 @@ session_start();
       document.body.style.overflow = 'auto';
     }
 
-    function filterLogs() {
-      const timeFilter = document.getElementById('timeFilter').value;
-      const roleFilter = document.getElementById('roleFilter').value;
-      const searchQuery = document.getElementById('searchInput').value.toLowerCase();
-      
-      // In a real application, you would make an AJAX call here to fetch filtered data
-      console.log('Filtering logs with:', { timeFilter, roleFilter, searchQuery });
-      
-      // For demo purposes, we'll just update the table with filtered sample data
-      updateTable(sampleLogs);
-    }
-
-    function updateTable(logs) {
-      const tbody = document.getElementById('logsTableBody');
-      tbody.innerHTML = '';
-
-      logs.forEach(log => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${log.id}</td>
-          <td>${log.fullName}</td>
-          <td><span class="badge">${log.role}</span></td>
-          <td class="office-cell">
-            <img src="${log.office.image}" alt="${log.office.name}" class="office-avatar">
-            ${log.office.name}
-          </td>
-          <td>${log.date}</td>
-          <td>${log.time}</td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
-
-    function changePage(page) {
-      if (page < 1) page = 1;
-      // In a real app, you'd fetch the data for the requested page
-      currentPage = page;
-      updatePagination();
-    }
-
-    function updatePagination() {
-      const pagination = document.getElementById('pagination');
-      const buttons = pagination.getElementsByTagName('button');
-      
-      // Update active state
-      for (let i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('active');
-        if (buttons[i].textContent == currentPage) {
-          buttons[i].classList.add('active');
-        }
-      }
-    }
-
     function exportData(format) {
       const month = document.getElementById('exportMonth').value;
-      alert(`Exporting ${format.toUpperCase()} data for ${month}`);
-      // In a real application, this would trigger a download
+      
+      // Redirect to export API
+      window.location.href = `../../api/export_logs.php?format=${format}&month=${month}`;
       closeModal('exportModal');
     }
 
@@ -448,21 +626,14 @@ session_start();
       }
     };
 
-    // Initialize the table
-    document.addEventListener('DOMContentLoaded', function() {
-      updateTable(sampleLogs);
-      updatePagination();
-    });
-
-    // Add this to your existing JavaScript
-  document.addEventListener('DOMContentLoaded', function() {
     // Handle image loading errors
-    document.querySelectorAll('img.office-avatar').forEach(img => {
-      img.onerror = function() {
-        this.src = '../../buildings/default.png'; // Fallback image
-      };
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('img.office-avatar').forEach(img => {
+        img.onerror = function() {
+          this.src = '../../buildings/default.png';
+        };
+      });
     });
-  });
   </script>
 </body>
 </html>
