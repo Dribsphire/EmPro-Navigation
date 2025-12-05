@@ -9,10 +9,37 @@ class NavigationTracker {
         this.radiusCircles = new Map(); // Store circle layers
         this.defaultRadius = 50; // Default radius in meters
         this.hasEnteredRadius = false;
+<<<<<<< HEAD
         this.routeSourceId = 'navigation-route';
         this.routeLayerId = 'navigation-route-layer';
         this.lastRouteUpdate = null;
         this.routeUpdateInterval = 5000; // Update route every 5 seconds
+=======
+        this.routeFinder = null; // Route finder instance
+        
+        // ============================================
+        // TESTING MODE: Static location within school
+        // ============================================
+        // Static coordinates for testing route system
+        this.staticLocation = {
+            lat: 10.643401,
+            lng: 122.940189
+        };
+        // ============================================
+        
+        // Initialize route finder
+        if (typeof RouteFinder !== 'undefined') {
+            this.routeFinder = new RouteFinder(map);
+            // Load footwalk network when map is ready
+            if (this.map.loaded()) {
+                this.routeFinder.loadFootwalkNetwork();
+            } else {
+                this.map.on('load', () => {
+                    this.routeFinder.loadFootwalkNetwork();
+                });
+            }
+        }
+>>>>>>> 158941c8325f010548e2149f09574b7d6dd79576
         
         // Initialize radius circles for all offices after map loads
         if (this.map.loaded()) {
@@ -121,11 +148,17 @@ class NavigationTracker {
         // Stop any existing navigation
         this.stopNavigation();
 
-        // Check if geolocation is available
+        // ============================================
+        // GEOLOCATION CHECK (COMMENTED OUT FOR TESTING)
+        // Uncomment when switching back to real-time tracking
+        // ============================================
+        /*
         if (!navigator.geolocation) {
             alert('Geolocation is not supported by your browser.');
             return;
         }
+        */
+        // ============================================
 
         // Get office radius
         const radius = office.radius || this.defaultRadius;
@@ -156,11 +189,103 @@ class NavigationTracker {
             maximumAge: 30000 // Accept cached position up to 30 seconds old
         };
 
-        this.watchId = navigator.geolocation.watchPosition(
-            (position) => this.handleLocationUpdate(position),
-            (error) => this.handleLocationError(error),
+        // ============================================
+        // TESTING MODE: Using static location
+        // ============================================
+        console.log('TESTING MODE: Using static location', this.staticLocation);
+        const startLat = this.staticLocation.lat;
+        const startLng = this.staticLocation.lng;
+        const [officeLng, officeLat] = office.lngLat;
+        
+        console.log('Starting navigation from:', [startLng, startLat], 'to:', [officeLng, officeLat]);
+        
+        // Calculate and display route
+        if (this.routeFinder) {
+            console.log('Route finder available, calculating route...');
+            this.routeFinder.updateRoute(startLng, startLat, officeLng, officeLat).catch(err => {
+                console.error('Error calculating route:', err);
+            });
+        } else {
+            console.warn('Route finder not initialized');
+        }
+        
+        // Simulate location updates with static location
+        this.userLocation = { lat: startLat, lng: startLng };
+        const mockPosition = {
+            coords: {
+                latitude: startLat,
+                longitude: startLng,
+                accuracy: 10
+            },
+            timestamp: Date.now()
+        };
+        this.handleLocationUpdate(mockPosition);
+        
+        // Set up interval to simulate location updates (for testing distance calculations)
+        this.staticLocationInterval = setInterval(() => {
+            const mockPos = {
+                coords: {
+                    latitude: this.staticLocation.lat,
+                    longitude: this.staticLocation.lng,
+                    accuracy: 10
+                },
+                timestamp: Date.now()
+            };
+            this.handleLocationUpdate(mockPos);
+        }, 3000); // Update every 3 seconds
+        
+        // ============================================
+        // REALTIME TRACKING CODE (COMMENTED OUT)
+        // Uncomment the code below to enable real-time geolocation tracking
+        // ============================================
+        /*
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const startLat = position.coords.latitude;
+                    const startLng = position.coords.longitude;
+                    const [officeLng, officeLat] = office.lngLat;
+                    
+                    console.log('Starting navigation from:', [startLng, startLat], 'to:', [officeLng, officeLat]);
+                    
+                    // Calculate and display route
+                    if (this.routeFinder) {
+                        console.log('Route finder available, calculating route...');
+                        await this.routeFinder.updateRoute(startLng, startLat, officeLng, officeLat);
+                    } else {
+                        console.warn('Route finder not initialized');
+                    }
+                    
+                    // Start watching position
+                    this.watchId = navigator.geolocation.watchPosition(
+                        (position) => this.handleLocationUpdate(position),
+                        (error) => this.handleLocationError(error),
+                        options
+                    );
+                } catch (error) {
+                    console.error('Error in navigation start callback:', error);
+                    // Still start watching even if route calculation fails
+                    this.watchId = navigator.geolocation.watchPosition(
+                        (position) => this.handleLocationUpdate(position),
+                        (error) => this.handleLocationError(error),
+                        options
+                    );
+                }
+            },
+            (error) => {
+                console.error('Error getting initial position:', error);
+                this.handleLocationError(error);
+                // Still start watching even if initial position fails
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.handleLocationUpdate(position),
+                    (error) => this.handleLocationError(error),
+                    options
+                );
+            },
             options
         );
+        */
+        // ============================================
 
         // Show navigation status
         this.showNavigationStatus(office);
@@ -175,8 +300,20 @@ class NavigationTracker {
             this.watchId = null;
         }
 
-        // Remove route from map
-        this.removeRoute();
+// Clear static location interval if in testing mode
+if (this.staticLocationInterval) {
+    clearInterval(this.staticLocationInterval);
+    this.staticLocationInterval = null;
+}
+
+// Remove route from map
+// Use routeFinder if available, otherwise fallback to this.removeRoute()
+if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
+    this.routeFinder.removeRoute();
+} else if (typeof this.removeRoute === "function") {
+    this.removeRoute();
+}
+
 
         if (this.currentNavigation) {
             this.logNavigationEnd(this.currentNavigation.logId, this.hasEnteredRadius);
@@ -324,7 +461,7 @@ class NavigationTracker {
         statusDiv.id = 'navigation-status';
         statusDiv.style.cssText = `
             position: fixed;
-            top: 80px;
+            top: 167px;
             right: 20px;
             background: white;
             padding: 15px 20px;

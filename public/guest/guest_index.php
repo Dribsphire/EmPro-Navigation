@@ -45,6 +45,10 @@ body { margin: 0; padding: 0; }
     <div class="map-search">
         <label class="sr-only" for="building-search">Search buildings</label>
         <input id="building-search" list="building-list" placeholder="Search buildings..." autocomplete="off">
+        <button type="button" id="center-user-location" aria-label="Center on my location" title="Center on my location" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+            <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>
+            My Location
+        </button>
         <button type="button" id="toggle-3d" aria-pressed="false">3D View</button>
         <datalist id="building-list">
             <option value="RDCAGIS">
@@ -66,8 +70,10 @@ body { margin: 0; padding: 0; }
     <div id="map"></div>
 </div>
 <script src="../script/showlayout.js"></script>
+<script src="../script/route_finder.js"></script>
 <script src="../script/navigation_tracker.js"></script>
 <script src="../script/realtime_office_sync.js"></script>
+<script src="../script/user_location_tracker.js"></script>
 <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiZHJpYnNwaGlyZSIsImEiOiJjbWllamJrdzEwM2ZrM3FwczFyY2h5cGRwIn0.SdWyL8hhdYbwMvEQ6wsaAQ';
     const mediaQuery = window.matchMedia('(max-width: 768px)');
@@ -380,6 +386,32 @@ body { margin: 0; padding: 0; }
     // Global navigation tracker
     let navigationTracker = null;
     let officeSync = null;
+    let userLocationTracker = null;
+    
+    // Initialize user location tracker
+    function initUserLocationTracker() {
+        if (typeof UserLocationTracker !== 'undefined') {
+            userLocationTracker = new UserLocationTracker(map);
+            window.userLocationTracker = userLocationTracker;
+            
+            // Auto-start tracking after a short delay
+            setTimeout(() => {
+                if (userLocationTracker) {
+                    userLocationTracker.startTracking();
+                }
+            }, 1500);
+            
+            // Add center button handler
+            const centerBtn = document.getElementById('center-user-location');
+            if (centerBtn) {
+                centerBtn.addEventListener('click', () => {
+                    if (userLocationTracker) {
+                        userLocationTracker.centerOnUser();
+                    }
+                });
+            }
+        }
+    }
     
     // Load offices from database and initialize navigation tracker
     async function loadOfficesAndInitTracker() {
@@ -531,6 +563,9 @@ body { margin: 0; padding: 0; }
     map.on('load', async ()=>{
         //set the default atmosphere style
         map.setFog({});
+        
+        // Initialize user location tracker
+        initUserLocationTracker();
         
         // Load offices from database
         await loadOfficesFromDatabase();
