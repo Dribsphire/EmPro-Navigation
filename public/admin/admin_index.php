@@ -293,6 +293,42 @@ body { margin: 0; padding: 0; }
 </div>
 <script src="../script/showlayout.js"></script>
 <script>
+    // Suppress Mapbox console warnings and errors
+    (function() {
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        // Filter out Mapbox-specific warnings and errors
+        console.error = function(...args) {
+            const message = args.join(' ');
+            // Suppress Mapbox featureNamespace warnings
+            if (message.includes('featureNamespace') && message.includes('featureset')) {
+                return;
+            }
+            // Suppress blocked client errors (ad blockers)
+            if (message.includes('ERR_BLOCKED_BY_CLIENT') || message.includes('events.mapbox.com')) {
+                return;
+            }
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            // Suppress Mapbox terrain/hillshade warnings
+            if (message.includes('Terrain and hillshade are disabled') || 
+                message.includes('Canvas2D limitations') ||
+                message.includes('fingerprinting protection')) {
+                return;
+            }
+            // Suppress featureNamespace warnings
+            if (message.includes('featureNamespace') && message.includes('featureset')) {
+                return;
+            }
+            originalWarn.apply(console, args);
+        };
+    })();
+</script>
+<script>
     // Drill Alert Modal Functionality
     document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('drillAlertModal');
@@ -487,7 +523,9 @@ body { margin: 0; padding: 0; }
     const map = new mapboxgl.Map({
         container: 'map', // container ID
         style: 'mapbox://styles/mapbox/standard', // base map style
-        ...getViewPreset('2d')
+        ...getViewPreset('2d'),
+        // Disable telemetry to reduce blocked request errors
+        collectResourceTiming: false
     });
 
     // Check if map is already loaded (sometimes it loads very quickly)
