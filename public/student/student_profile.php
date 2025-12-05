@@ -1,3 +1,66 @@
+<?php
+require_once __DIR__ . '/../../services/Database.php';
+
+session_start();
+
+// Check if user is logged in as student
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'student' || !isset($_SESSION['user_id'])) {
+    header('Location: ../student_guest_login.php');
+    exit;
+}
+
+$userId = (int) $_SESSION['user_id'];
+$database = new Database();
+$conn = $database->getConnection();
+
+// Get student data
+$stmt = $conn->prepare("
+    SELECT 
+        s.student_id,
+        s.school_id,
+        s.full_name,
+        s.email,
+        s.phone,
+        s.profile_picture,
+        sec.section_code,
+        sec.section_name,
+        u.email as user_email
+    FROM students s
+    INNER JOIN users u ON u.user_id = s.user_id
+    LEFT JOIN sections sec ON sec.section_id = s.section_id
+    WHERE s.user_id = :user_id
+    LIMIT 1
+");
+$stmt->execute([':user_id' => $userId]);
+$student = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$student) {
+    header('Location: ../student_guest_login.php');
+    exit;
+}
+
+// Get recent logs (visits) - last 10
+$logsStmt = $conn->prepare("
+    SELECT 
+        o.office_name,
+        uv.visit_time,
+        oi.image_path as office_image
+    FROM user_visits uv
+    INNER JOIN offices o ON o.office_id = uv.office_id
+    LEFT JOIN office_images oi ON oi.office_id = o.office_id AND oi.is_primary = 1
+    WHERE uv.user_id = :user_id
+    ORDER BY uv.visit_time DESC
+    LIMIT 10
+");
+$logsStmt->execute([':user_id' => $userId]);
+$logs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Use email from users table if student email is null
+$email = $student['email'] ?: $student['user_email'];
+$phone = $student['phone'] ?: '';
+$profilePicture = $student['profile_picture'] ? '../' . $student['profile_picture'] : '../images/profile.jpg';
+$sectionCode = $student['section_code'] ?: 'N/A';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,18 +84,34 @@
         <div class="profile-card">
             <div class="profile-header"><!-- profile header section -->
                 <div class="main-profile">
-                    <div class="profile-image"></div>
+                    <div class="profile-image" id="profileImage" style="background-image: url('<?= htmlspecialchars($profilePicture); ?>');"></div>
                     <div class="profile-names">
-                        <h1 class="username">Manuel G. Nigga</h1>
-                        <small class="page-title">BSIT-4C</small>
-                        <button class="edit-profile" style="background-color: #4f46e5; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Change Profile</button>
+                        <h1 class="username"><?= htmlspecialchars($student['full_name']); ?></h1>
+                        <small class="page-title"><?= htmlspecialchars($sectionCode); ?></small>
+                        <button class="edit-profile" onclick="openEditModal()" style="background-color: #4f46e5; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Change Profile</button>
                     </div>
                 </div>
             </div>
 
             <div class="profile-body"><!-- profile body section -->
                 <div class="info" style="display: flex; flex-direction: column; gap: 10px; margin-top:6em; margin-left: 1em;">
-                    <b style="color:orange;">Email: </b>manuelnigga@gmail.com <br><b style="color:orange;">Phone: </b>09123456789<br><b style="color:orange;">School ID: </b>CMA12040300
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <b style="color:orange;">Email: </b>
+                        <span id="emailDisplay"><?= htmlspecialchars($email); ?></span>
+                        <button onclick="editField('email')" style="background: none; border: none; color: #818cf8; cursor: pointer; padding: 5px;" title="Edit Email">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <b style="color:orange;">Phone: </b>
+                        <span id="phoneDisplay"><?= htmlspecialchars($phone ?: 'Not set'); ?></span>
+                        <button onclick="editField('phone')" style="background: none; border: none; color: #818cf8; cursor: pointer; padding: 5px;" title="Edit Phone">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                    <div>
+                        <b style="color:orange;">School ID: </b><?= htmlspecialchars($student['school_id']); ?>
+                    </div>
                 </div>
                 <div class="logs-section">
                     <h3 class="logs-title">Recent Logs</h3>
@@ -45,32 +124,68 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>COE Office</td>
-                                    <td>12:00 PM</td>
-                                </tr>
-                                <tr>
-                                    <td>CIT Office</td>
-                                    <td>1:00 PM</td>
-                                </tr>
-                                <tr>
-                                    <td>CCS Office</td>
-                                    <td>2:30 PM</td>
-                                </tr>
-                                <tr>
-                                    <td>Library</td>
-                                    <td>3:15 PM</td>
-                                </tr>
-                                <tr>
-                                    <td>Registrar Office</td>
-                                    <td>4:00 PM</td>
-                                </tr>
+                                <?php if (empty($logs)): ?>
+                                    <tr>
+                                        <td colspan="2" style="text-align: center; color: var(--secondary-color);">No visits recorded yet.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($logs as $log): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($log['office_name']); ?></td>
+                                            <td><?= date('M d, Y h:i A', strtotime($log['visit_time'])); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
                 
             
+            </div>
+        </div>
+
+        <!-- Edit Profile Modal -->
+        <div id="editProfileModal" class="modal" style="display: none;">
+            <div class="modal-content" style="background: var(--primary-bg); border: 1px solid var(--accent-bg); border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="color: var(--primary-color); margin: 0;">Edit Profile</h2>
+                    <button onclick="closeEditModal()" style="background: none; border: none; color: var(--primary-color); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                
+                <form id="profileForm" enctype="multipart/form-data">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Profile Picture</label>
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div id="profilePreview" style="width: 100px; height: 100px; border-radius: 50%; background-size: cover; background-position: center; border: 3px solid var(--accent-bg); background-image: url('<?= htmlspecialchars($profilePicture); ?>');"></div>
+                            <div>
+                                <input type="file" id="profilePictureInput" name="profile_picture" accept="image/*" style="display: none;" onchange="previewProfilePicture(this)">
+                                <button type="button" onclick="document.getElementById('profilePictureInput').click()" style="background: var(--accent-bg); color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">
+                                    Choose Image
+                                </button>
+                                <p style="color: var(--secondary-color); font-size: 0.85rem; margin-top: 0.5rem;">Max 5MB (JPEG, PNG, GIF, WebP)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Email</label>
+                        <input type="email" id="emailInput" name="email" value="<?= htmlspecialchars($email); ?>" style="width: 100%; padding: 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);" required>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Phone</label>
+                        <input type="tel" id="phoneInput" name="phone" value="<?= htmlspecialchars($phone); ?>" style="width: 100%; padding: 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);" placeholder="e.g., 09123456789">
+                    </div>
+                    
+                    <div id="errorMessage" style="color: #ef4444; margin-bottom: 1rem; display: none;"></div>
+                    <div id="successMessage" style="color: #10b981; margin-bottom: 1rem; display: none;"></div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button type="button" onclick="closeEditModal()" style="background: var(--secondary-bg); color: var(--primary-color); border: 1px solid var(--accent-bg); padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="background: #4f46e5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600;">Save Changes</button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -455,4 +570,111 @@ html {
             .data {gap: 20px;}
 }
 
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 </style>
+
+<script>
+function openEditModal() {
+    document.getElementById('editProfileModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editProfileModal').style.display = 'none';
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('successMessage').style.display = 'none';
+}
+
+function previewProfilePicture(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('profilePreview').style.backgroundImage = `url(${e.target.result})`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function editField(field) {
+    openEditModal();
+    if (field === 'email') {
+        document.getElementById('emailInput').focus();
+    } else if (field === 'phone') {
+        document.getElementById('phoneInput').focus();
+    }
+}
+
+// Handle form submission
+document.getElementById('profileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const errorDiv = document.getElementById('errorMessage');
+    const successDiv = document.getElementById('successMessage');
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('../../api/update_student_profile.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            successDiv.textContent = result.message || 'Profile updated successfully!';
+            successDiv.style.display = 'block';
+            
+            // Update displayed values
+            document.getElementById('emailDisplay').textContent = document.getElementById('emailInput').value;
+            document.getElementById('phoneDisplay').textContent = document.getElementById('phoneInput').value || 'Not set';
+            
+            // Update profile picture if changed
+            if (result.profile_picture) {
+                const profileImage = document.getElementById('profileImage');
+                profileImage.style.backgroundImage = `url('../${result.profile_picture}')`;
+            }
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                closeEditModal();
+                // Reload page to ensure all data is synced
+                window.location.reload();
+            }, 2000);
+        } else {
+            errorDiv.textContent = result.message || 'Failed to update profile. Please try again.';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+        console.error('Error updating profile:', error);
+    }
+});
+
+// Close modal when clicking outside
+document.getElementById('editProfileModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEditModal();
+    }
+});
+</script>

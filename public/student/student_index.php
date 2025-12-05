@@ -6,7 +6,7 @@
 <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="icon" type="image/png" href="../images/CHMSU.png">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.17.0-beta.1/mapbox-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="../css/guest_style.css">
+<link rel="stylesheet" href="../css/studentStyle.css">
 <script type="text/javascript" src="../script/app.js" defer></script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.17.0-beta.1/mapbox-gl.js"></script>
 <style>

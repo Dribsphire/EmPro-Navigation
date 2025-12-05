@@ -137,7 +137,73 @@ main p{
   border: 1px solid var(--line-clr);
   border-radius: 1em;
   margin-bottom: 20px;
+  padding: min(1em, 15%);
+  position: relative;
 
+  h2, p { margin-top: 1em }
+}
+
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.map-search {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: min(360px, calc(100% - 2rem));
+  z-index: 1100;
+  display: flex;
+  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-end;
+  right:2rem;
+}
+
+.map-search input {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--base-clr);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+.map-search button {
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: var(--accent-clr);
+  color: #fff !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.map-search button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.3);
+}
+
+.map-search button:focus-visible {
+  outline: 2px solid var(--accent-clr);
+  outline-offset: 2px;
+}
+
+.map-search button {
+  float: right;
+  color: green;
 }
 
 @media(max-width: 800px){
@@ -149,7 +215,8 @@ main p{
   }
   .container{
     border: none;
-    padding: 0;
+    margin-bottom: 2em !important;
+    padding: 0%;
   }
   #sidebar{
     height: 60px;
@@ -231,18 +298,17 @@ main p{
   pointer-events: auto;
 }
 
-.map-layout-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    z-index: 1200;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
+.map-layout-content {
+  position: relative;
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+  max-width: min(85vw, 760px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .map-layout-title {
@@ -283,172 +349,4 @@ main p{
   margin: 0;
   color: #555;
   font-size: 0.95rem;
-}
-.token-section {
-    padding: 0 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.token-card {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    border-radius: 12px;
-    padding: 1.5rem;
-    color: white;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.token-card h3 {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.token-details {
-    display: grid;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.token-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.label {
-    font-size: 0.9rem;
-    opacity: 0.9;
-}
-
-.value {
-    font-weight: 500;
-}
-
-.status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.status.active {
-    background: rgba(255, 255, 255, 0.2);
-    color: #a5b4fc;
-}
-
-.token-progress {
-    height: 6px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 1rem;
-}
-
-.progress-bar {
-    height: 100%;
-    background: white;
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .token-card {
-        padding: 1.25rem;
-    }
-    
-    .token-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-    
-    .value, .status, .expiry {
-        margin-left: auto;
-    }
-}
-
-.token-section {
-    padding: 0 1rem;
-    margin-bottom: 1.5rem;
-    margin-top:1rem;
-}
-
-.token-card {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    border-radius: 12px;
-    padding: 1.5rem;
-    color: white;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.token-card h3 {
-    margin: 0 0 1rem 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-}
-
-.token-details {
-    display: grid;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.token-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.label {
-    font-size: 0.9rem;
-    opacity: 0.9;
-}
-
-.value {
-    font-weight: 500;
-}
-
-.status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.status.active {
-    background: rgba(255, 255, 255, 0.2);
-    color: #a5b4fc;
-}
-
-.token-progress {
-    height: 6px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 1rem;
-}
-
-.progress-bar {
-    height: 100%;
-    background: white;
-    border-radius: 3px;
-    transition: width 0.3s ease;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .token-card {
-        padding: 1.25rem;
-    }
-    
-    .token-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.25rem;
-    }
-    
-    .value, .status, .expiry {
-        margin-left: auto;
-    }
 }

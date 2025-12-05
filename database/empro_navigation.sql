@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 05, 2025 at 01:01 PM
+-- Generation Time: Dec 05, 2025 at 02:30 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -43,7 +43,7 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`admin_id`, `user_id`, `full_name`, `phone`, `profile_picture`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Vinceeeeee', '09445516426', NULL, '2025-12-05 19:20:37', '2025-12-02 06:26:51', '2025-12-05 11:20:37');
+(1, 1, 'Vinceeeeee', '09445516426', NULL, '2025-12-05 20:56:52', '2025-12-02 06:26:51', '2025-12-05 12:56:52');
 
 -- --------------------------------------------------------
 
@@ -68,7 +68,9 @@ CREATE TABLE `drill_alerts` (
 
 INSERT INTO `drill_alerts` (`alert_id`, `alert_type`, `title`, `description`, `is_active`, `created_by`, `created_at`, `ended_at`) VALUES
 (1, 'earthquake', '???? EARTHQUAKE DRILL ALERT', 'asd', 0, 1, '2025-12-04 03:32:25', '2025-12-04 10:44:00'),
-(2, 'earthquake', '???? EARTHQUAKE DRILL ALERT', 'adsdsdasdasdasdas dasdasdas', 0, 1, '2025-12-04 10:46:53', '2025-12-05 11:59:32');
+(2, 'earthquake', '???? EARTHQUAKE DRILL ALERT', 'adsdsdasdasdasdas dasdasdas', 0, 1, '2025-12-04 10:46:53', '2025-12-05 11:59:32'),
+(3, 'earthquake', 'Earthquake Drill', 'adasd', 0, 1, '2025-12-05 12:04:53', '2025-12-05 12:58:07'),
+(4, 'earthquake', 'Earthquake Drill', 'adasd', 0, 1, '2025-12-05 13:28:43', '2025-12-05 13:29:07');
 
 -- --------------------------------------------------------
 
@@ -118,9 +120,9 @@ CREATE TABLE `navigation_logs` (
 --
 
 INSERT INTO `navigation_logs` (`log_id`, `user_id`, `guest_id`, `office_id`, `start_time`, `end_time`, `status`, `created_at`) VALUES
-(1, NULL, 1, 10, '2025-12-03 14:05:01', NULL, 'in_progress', '2025-12-03 06:05:01'),
-(2, NULL, 1, 10, '2025-12-03 14:05:01', '2025-12-03 14:05:06', 'cancelled', '2025-12-03 06:05:01'),
-(3, 12, NULL, 6, '2025-12-03 14:15:03', '2025-12-03 14:15:09', 'cancelled', '2025-12-03 06:15:03'),
+(1, NULL, 1, 10, '2025-12-03 14:05:01', NULL, 'completed', '2025-12-03 06:05:01'),
+(2, NULL, 1, 10, '2025-12-03 14:05:01', '2025-12-03 14:05:06', 'completed', '2025-12-03 06:05:01'),
+(3, 12, NULL, 6, '2025-12-03 14:15:03', '2025-12-03 14:15:09', 'completed', '2025-12-03 06:15:03'),
 (4, 4, NULL, 6, '2025-12-03 14:26:30', '2025-12-03 14:26:40', 'cancelled', '2025-12-03 06:26:30'),
 (5, 4, NULL, 9, '2025-12-03 14:27:16', '2025-12-03 14:27:19', 'cancelled', '2025-12-03 06:27:16'),
 (6, 4, NULL, 6, '2025-12-03 14:34:22', '2025-12-03 14:34:47', 'cancelled', '2025-12-03 06:34:22'),
@@ -448,7 +450,7 @@ ALTER TABLE `admins`
 -- AUTO_INCREMENT for table `drill_alerts`
 --
 ALTER TABLE `drill_alerts`
-  MODIFY `alert_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `alert_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `guests`
