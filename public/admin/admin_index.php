@@ -40,7 +40,7 @@ $currentAdmin = $auth->getCurrentUser();
     max-width: 600px;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin-top: auto;
+    margin-top: 5rem;
 }
 
 .modal-header {
@@ -248,10 +248,206 @@ body { margin: 0; padding: 0; }
     </div>
 </div>
     <div id="map"></div>
+    
+    <!-- Drill Alert Modal -->
+    <div id="drillAlertModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Drill Alert Control</h2>
+                <span class="close-modal">&times;</span>
+            </div>
+            
+            <!-- Active Alert Status -->
+            <div id="activeAlertStatus" style="display: none; background: #ffe0e0; border: 1px solid #ff4444; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <strong style="color: #cc0000;">Active Alert:</strong>
+                        <span id="activeAlertTitle" style="color: #cc0000; font-weight: 600;"></span>
+                    </div>
+                    <button type="button" id="endAlertBtn" style="background: #cc0000; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s ease; white-space: nowrap;" onmouseover="this.style.background='#aa0000'" onmouseout="this.style.background='#cc0000'">
+                        End Alert
+                    </button>
+                </div>
+            </div>
+            
+            <form id="drillAlertForm">
+                <div class="form-group">
+                    <label for="alertType">Type of Alert:</label>
+                    <select id="alertType" name="alertType" required>
+                        <option value="">Select alert type</option>
+                        <option value="fire"> Fire Drill</option>
+                        <option value="earthquake"> Earthquake Drill</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="alertDescription">Description/Instructions:</label>
+                    <textarea id="alertDescription" name="alertDescription" rows="4" required placeholder="Enter evacuation instructions or safety guidelines..."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-cancel">Cancel</button>
+                    <button type="submit" class="btn-submit"> Send Alert</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 <script src="../script/showlayout.js"></script>
 <script>
-    
+    // Drill Alert Modal Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('drillAlertModal');
+        const btn = document.getElementById('drill_alert');
+        const closeBtn = modal.querySelector('.close-modal');
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        const form = document.getElementById('drillAlertForm');
+        const activeAlertStatus = document.getElementById('activeAlertStatus');
+        const activeAlertTitle = document.getElementById('activeAlertTitle');
+        const endAlertBtn = document.getElementById('endAlertBtn');
+        
+        let currentActiveAlertId = null;
+
+        // Check for active alerts
+        async function checkActiveAlert() {
+            try {
+                const response = await fetch('../../api/check_drill_alert.php');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.has_alert && data.alert) {
+                    currentActiveAlertId = data.alert.alert_id;
+                    activeAlertTitle.textContent = data.alert.title;
+                    activeAlertStatus.style.display = 'block';
+                    endAlertBtn.disabled = false;
+                    endAlertBtn.textContent = 'End Alert';
+                    endAlertBtn.style.cursor = 'pointer';
+                    endAlertBtn.style.opacity = '1';
+                } else {
+                    currentActiveAlertId = null;
+                    activeAlertStatus.style.display = 'none';
+                    endAlertBtn.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error checking active alert:', error);
+            }
+        }
+
+        // Open modal when button is clicked
+        btn.onclick = function() {
+            modal.style.display = 'block';
+            checkActiveAlert();
+        }
+
+        // Close modal when X is clicked
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+            form.reset();
+        }
+
+        // Close modal when Cancel button is clicked
+        cancelBtn.onclick = function() {
+            modal.style.display = 'none';
+            form.reset();
+        }
+
+        // Close modal when clicking outside the modal content
+        window.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+                form.reset();
+            }
+        }
+        
+        // End active alert
+        endAlertBtn.onclick = async function() {
+            if (!currentActiveAlertId) {
+                alert('❌ No active alert to end.');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to end the active drill alert?\n\nThis will stop the alert for all students.')) {
+                return;
+            }
+            
+            endAlertBtn.disabled = true;
+            endAlertBtn.textContent = 'Ending...';
+            
+            try {
+                const response = await fetch('../../api/end_drill_alert.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        alert_id: currentActiveAlertId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    alert('✅ Drill alert has been ended successfully.\n\nAll students will no longer see the alert.');
+                    activeAlertStatus.style.display = 'none';
+                    currentActiveAlertId = null;
+                    // Refresh the alert status
+                    checkActiveAlert();
+                } else {
+                    alert('❌ Error: ' + (result.message || 'Failed to end alert'));
+                    endAlertBtn.disabled = false;
+                    endAlertBtn.textContent = 'End Alert';
+                }
+            } catch (error) {
+                console.error('Error ending drill alert:', error);
+                alert('❌ Error: Failed to end drill alert. Please try again.');
+                endAlertBtn.disabled = false;
+                endAlertBtn.textContent = 'End Alert';
+            }
+        };
+
+        // Handle form submission
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            const alertType = document.getElementById('alertType').value;
+            const alertDescription = document.getElementById('alertDescription').value;
+            const submitBtn = form.querySelector('.btn-submit');
+            
+            // Disable button while sending
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            
+            try {
+                const response = await fetch('../../api/send_drill_alert.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        alert_type: alertType,
+                        description: alertDescription
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    alert('✅ Drill alert has been sent to all students!');
+                    modal.style.display = 'none';
+                    form.reset();
+                    // Refresh active alert status to show the new alert
+                    setTimeout(() => {
+                        checkActiveAlert();
+                    }, 500);
+                } else {
+                    alert('❌ Error: ' + (result.message || 'Failed to send alert'));
+                }
+            } catch (error) {
+                console.error('Error sending drill alert:', error);
+                alert('❌ Error: Failed to send drill alert. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '📢 Send Alert';
+            }
+        };
+    });
+
     mapboxgl.accessToken = 'pk.eyJ1IjoiZHJpYnNwaGlyZSIsImEiOiJjbWllamJrdzEwM2ZrM3FwczFyY2h5cGRwIn0.SdWyL8hhdYbwMvEQ6wsaAQ';
     const mediaQuery = window.matchMedia('(max-width: 768px)');
     let isMobileViewport = mediaQuery.matches;

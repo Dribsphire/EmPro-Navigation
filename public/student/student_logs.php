@@ -9,7 +9,8 @@
     <link rel="icon" type="image/png" href="../images/CHMSU.png">
     <link rel="stylesheet" href="../css/studentStyle.css">
     <script type="text/javascript" src="../script/app.js" defer></script> 
-    <script type="text/javascript" src="../script/student_logs_script.js" defer></script> 
+    <script type="text/javascript" src="../script/student_logs_script.js" defer></script>
+    <script src="../script/drill_alert_popup.js"></script> 
 </head>
 
 <body>

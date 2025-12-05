@@ -110,7 +110,7 @@ class Auth {
             session_destroy();
         }
 
-        header('Location: /public/admin_login.php');
+        header('Location:/public/admin_login.php');
         exit();
     }
 

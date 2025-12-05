@@ -431,33 +431,6 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       </button>
     </div>
 
-    <div class="stats-summary">
-      <div class="stat-card">
-        <h3><?= $totalLogs ?></h3>
-        <p>Total Navigations</p>
-      </div>
-      <?php
-      // Get completed count
-      $completedSql = "SELECT COUNT(*) as count FROM navigation_logs WHERE status = 'completed' $dateConditionSimple";
-      $completedStmt = $conn->query($completedSql);
-      $completedCount = $completedStmt->fetch(PDO::FETCH_ASSOC)['count'];
-      ?>
-      <div class="stat-card">
-        <h3><?= $completedCount ?></h3>
-        <p>Completed</p>
-      </div>
-      <?php
-      // Get unique visitors count
-      $visitorsSql = "SELECT COUNT(DISTINCT COALESCE(user_id, guest_id)) as count FROM navigation_logs WHERE 1=1 $dateConditionSimple";
-      $visitorsStmt = $conn->query($visitorsSql);
-      $visitorsCount = $visitorsStmt->fetch(PDO::FETCH_ASSOC)['count'];
-      ?>
-      <div class="stat-card">
-        <h3><?= $visitorsCount ?></h3>
-        <p>Unique Visitors</p>
-      </div>
-    </div>
-
     <form method="GET" id="filterForm">
       <div class="filters-container">
         <div class="filter-group">

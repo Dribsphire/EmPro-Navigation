@@ -4,7 +4,7 @@ class Database {
     //private $host = "localhost";
     //private $db_name = "empro_navigation";
     //private $username = "root";
-    // private $password = "";
+    //private $password = "";
 
 
     private $host = "localhost";

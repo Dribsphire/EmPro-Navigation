@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../css/studentStyle.css">
     <script type="text/javascript" src="../script/app.js" defer></script>
     <script type="text/javascript" src="../script/student_logs_script.js" defer></script>
+    <script src="../script/drill_alert_popup.js"></script>
     <!-- import font icon (fontawesome) -->
     <script src="https://kit.fontawesome.com/b8b432d7d3.js" crossorigin="anonymous"></script>
 </head>
