@@ -17,7 +17,7 @@ $monthNum = substr($month, 5, 2);
 $startDate = "$year-$monthNum-01";
 $endDate = date('Y-m-t', strtotime($startDate));
 
-// Fetch navigation logs for the selected month
+// Fetch navigation logs for the selected month (only completed status)
 $sql = "
     SELECT 
         nl.log_id,
@@ -44,7 +44,7 @@ $sql = "
     LEFT JOIN students s ON nl.user_id = s.user_id
     LEFT JOIN students st ON nl.user_id = st.user_id
     LEFT JOIN guests g ON nl.guest_id = g.guest_id
-    WHERE nl.start_time >= :start_date AND nl.start_time <= :end_date
+    WHERE nl.status = 'completed' AND nl.start_time >= :start_date AND nl.start_time <= :end_date
     ORDER BY nl.start_time DESC
 ";
 

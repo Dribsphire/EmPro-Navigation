@@ -72,9 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($full_name === '' || $email === '' || $contact === '' || $reason === '') {
         $guest_error = 'Full name, email, contact number, and reason are required.';
     } else {
-        // Validate email format
+        // Validate email format and must end with @gmail.com
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $guest_error = 'Please enter a valid email address.';
+        } elseif (!preg_match('/@gmail\.com$/', $email)) {
+            $guest_error = 'Email must end with @gmail.com';
+        } elseif (strlen($contact) !== 11 || !preg_match('/^[0-9]{11}$/', $contact)) {
+            $guest_error = 'Contact number must be exactly 11 digits.';
         } else {
             // Generate token and expiry (1 day from now)
             $token = bin2hex(random_bytes(16));
@@ -123,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <title>Login-Empro::</title>
     <link rel="icon" type="image/png" href="images/logo2.png">
     <link rel="stylesheet" type="text/css" href="css/login_student_guest.css" />
-  
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   </head>
   <body>
     <div class="container">
@@ -131,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <div class="signin-signup">
           <form action="" method="POST" class="sign-in-form">
             <input type="hidden" name="action" value="student_login">
-            <h2 class="title">Sign In</h2>
+            <h2 class="title">Sign in as Student</h2>
             <div class="input-field">
               <i class="fas fa-user"></i>
               <input type="text" name="school_id" placeholder="School ID" required />
@@ -164,18 +168,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
           <form action="" method="POST" class="sign-up-form">
             <input type="hidden" name="action" value="guest_signup">
-            <h2 class="title">Sign Up</h2>
+            <h2 class="title">Login as Guest</h2>
             <div class="input-field">
               <i class="fas fa-user"></i>
               <input type="text" name="full_name" placeholder="Full name" required />
             </div>
             <div class="input-field">
               <i class="fas fa-envelope"></i>
-              <input type="email" name="email" placeholder="Email" required />
+              <input type="email" name="email" placeholder="Email (must end with @gmail.com)" pattern="[a-zA-Z0-9._%+-]+@gmail\.com$" title="Email must end with @gmail.com" required />
             </div>
             <div class="input-field">
               <i class="fas fa-phone"></i>
-              <input type="text" name="contact_number" placeholder="Contact number" required />
+              <input type="tel" name="contact_number" placeholder="Contact number (11 digits)" pattern="[0-9]{11}" maxlength="11" title="Please enter exactly 11 digits" required />
             </div>
             <div class="input-field" style="max-width: 380px;
             width: 100%;
@@ -233,6 +237,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         sign_in_btn.addEventListener('click', () =>{
             container.classList.remove("sign-up-mode");
         });
+
+        // Phone number validation - numbers only, max 11 digits
+        const contactInput = document.querySelector('input[name="contact_number"]');
+        if (contactInput) {
+            contactInput.addEventListener('input', function(e) {
+                // Remove any non-numeric characters
+                this.value = this.value.replace(/[^0-9]/g, '');
+                // Limit to 11 digits
+                if (this.value.length > 11) {
+                    this.value = this.value.slice(0, 11);
+                }
+            });
+
+            // Prevent paste of non-numeric characters
+            contactInput.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                const numericOnly = pastedText.replace(/[^0-9]/g, '').slice(0, 11);
+                this.value = numericOnly;
+            });
+        }
+
+        // Email validation - must end with @gmail.com
+        const emailInput = document.querySelector('input[name="email"]');
+        if (emailInput) {
+            emailInput.addEventListener('blur', function(e) {
+                const email = this.value.trim();
+                if (email && !email.endsWith('@gmail.com')) {
+                    this.setCustomValidity('Email must end with @gmail.com');
+                    this.reportValidity();
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
+
+            emailInput.addEventListener('input', function(e) {
+                // Clear custom validity on input
+                if (this.validity.customError) {
+                    this.setCustomValidity('');
+                }
+            });
+        }
     </script>
   </body>
 </html>

@@ -61,14 +61,14 @@ if (!empty($searchQuery)) {
     $searchParams[':search'] = '%' . $searchQuery . '%';
 }
 
-// Get total count for pagination
+// Get total count for pagination (only completed status)
 $countSql = "
     SELECT COUNT(*) as total
     FROM navigation_logs nl
     LEFT JOIN offices o ON nl.office_id = o.office_id
     LEFT JOIN students s ON nl.user_id = s.user_id
     LEFT JOIN guests g ON nl.guest_id = g.guest_id
-    WHERE 1=1 $dateCondition $roleCondition $searchCondition
+    WHERE 1=1 AND nl.status = 'completed' $dateCondition $roleCondition $searchCondition
 ";
 
 $countStmt = $conn->prepare($countSql);
@@ -79,7 +79,7 @@ $countStmt->execute();
 $totalLogs = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
 $totalPages = ceil($totalLogs / $itemsPerPage);
 
-// Fetch navigation logs
+// Fetch navigation logs (only completed status)
 $sql = "
     SELECT 
         nl.log_id,
@@ -106,7 +106,7 @@ $sql = "
     LEFT JOIN office_images oi ON o.office_id = oi.office_id AND oi.is_primary = 1
     LEFT JOIN students s ON nl.user_id = s.user_id
     LEFT JOIN guests g ON nl.guest_id = g.guest_id
-    WHERE 1=1 $dateCondition $roleCondition $searchCondition
+    WHERE 1=1 AND nl.status = 'completed' $dateCondition $roleCondition $searchCondition
     ORDER BY nl.start_time DESC
     LIMIT :limit OFFSET :offset
 ";
@@ -135,32 +135,155 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       justify-content: space-between;
       align-items: center;
       margin-bottom: 2rem;
-      flex-wrap: wrap;
-      gap: 1rem;
+      padding: 0 1rem;
+    }
+
+    .filter-form {
+      background: var(--base-clr);
+      border: 1px solid var(--line-clr);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .filters-container {
       display: flex;
-      gap: 1rem;
+      gap: 1.5rem;
       flex-wrap: wrap;
-      margin-bottom: 1.5rem;
+      align-items: flex-end;
     }
 
     .filter-group {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 0.5rem;
+      min-width: 200px;
+      flex: 1;
     }
 
     .filter-group label {
-      white-space: nowrap;
+      font-weight: 500;
+      color: var(--secondary-text-clr);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .select-wrapper {
+      position: relative;
+    }
+
+    .select-wrapper i {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--secondary-text-clr);
+      pointer-events: none;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 0.65rem 1rem;
+      border: 1px solid var(--line-clr);
+      border-radius: 6px;
+      background-color: var(--hover-clr);
       color: var(--text-clr);
+      font-size: 0.95rem;
+      appearance: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent-clr);
+      box-shadow: 0 0 0 2px rgba(94, 99, 255, 0.2);
+    }
+
+    .search-group {
+      display: flex;
+      gap: 1rem;
+      flex: 2;
+      min-width: 300px;
     }
 
     .search-container {
       position: relative;
-      max-width: 300px;
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+
+    .search-container i {
+      position: absolute;
+      left: 12px;
+      color: var(--secondary-text-clr);
+    }
+
+    .search-input {
       width: 100%;
+      padding: 0.65rem 1rem 0.65rem 2.5rem;
+      border: 1px solid var(--line-clr);
+      border-radius: 6px;
+      background-color: var(--hover-clr);
+      color: var(--text-clr);
+      font-size: 0.95rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-clr);
+      box-shadow: 0 0 0 2px rgba(94, 99, 255, 0.2);
+    }
+
+    .btn-apply {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0 1.5rem;
+      height: 44px;
+      background-color: var(--accent-clr);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: background-color 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-apply:hover {
+      background-color: #4a4fff;
+    }
+
+    .btn-apply:active {
+      transform: translateY(1px);
+    }
+
+    @media (max-width: 768px) {
+      .filters-container {
+        flex-direction: column;
+        gap: 1rem;
+      }
+      
+      .filter-group {
+        width: 100%;
+      }
+      
+      .search-group {
+        flex-direction: column;
+        width: 100%;
+        min-width: auto;
+      }
+      
+      .btn-apply {
+        width: 100%;
+        height: 44px;
+      }
     }
 
     .badge {
@@ -195,14 +318,6 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .badge-in_progress {
       background-color: #fff3e0;
       color: #ef6c00;
-    }
-
-    .search-container i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--secondary-text-clr);
     }
 
     .search-container input {
@@ -431,34 +546,47 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       </button>
     </div>
 
-    <form method="GET" id="filterForm">
+    <form method="GET" id="filterForm" class="filter-form">
       <div class="filters-container">
         <div class="filter-group">
-          <label for="timeFilter">Filter by:</label>
-          <select id="timeFilter" name="time" class="form-control" onchange="document.getElementById('filterForm').submit()">
-            <option value="week" <?= $timeFilter === 'week' ? 'selected' : '' ?>>This Week</option>
-            <option value="month" <?= $timeFilter === 'month' ? 'selected' : '' ?>>This Month</option>
-            <option value="year" <?= $timeFilter === 'year' ? 'selected' : '' ?>>This Year</option>
-            <option value="all" <?= $timeFilter === 'all' ? 'selected' : '' ?>>All Time</option>
-          </select>
+          <label for="timeFilter">Filter by</label>
+          <div class="select-wrapper">
+            <select id="timeFilter" name="time" class="form-control" onchange="document.getElementById('filterForm').submit()">
+              <option value="week" <?= $timeFilter === 'week' ? 'selected' : '' ?>>This Week</option>
+              <option value="month" <?= $timeFilter === 'month' ? 'selected' : '' ?>>This Month</option>
+              <option value="year" <?= $timeFilter === 'year' ? 'selected' : '' ?>>This Year</option>
+              <option value="all" <?= $timeFilter === 'all' ? 'selected' : '' ?>>All Time</option>
+            </select>
+            <i class="fas fa-chevron-down"></i>
+          </div>
         </div>
 
         <div class="filter-group">
-          <label for="roleFilter">Role:</label>
-          <select id="roleFilter" name="role" class="form-control" onchange="document.getElementById('filterForm').submit()">
-            <option value="all" <?= $roleFilter === 'all' ? 'selected' : '' ?>>All Roles</option>
-            <option value="student" <?= $roleFilter === 'student' ? 'selected' : '' ?>>Students</option>
-            <option value="guest" <?= $roleFilter === 'guest' ? 'selected' : '' ?>>Guests</option>
-          </select>
+          <label for="roleFilter">Role</label>
+          <div class="select-wrapper">
+            <select id="roleFilter" name="role" class="form-control" onchange="document.getElementById('filterForm').submit()">
+              <option value="all" <?= $roleFilter === 'all' ? 'selected' : '' ?>>All Roles</option>
+              <option value="student" <?= $roleFilter === 'student' ? 'selected' : '' ?>>Students</option>
+              <option value="guest" <?= $roleFilter === 'guest' ? 'selected' : '' ?>>Guests</option>
+            </select>
+            <i class="fas fa-chevron-down"></i>
+          </div>
         </div>
 
-        <div class="search-container">
-          <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search logs..." value="<?= htmlspecialchars($searchQuery) ?>">
+        <div class="search-group">
+          <div class="search-container">
+            <i class="fas fa-search"></i>
+            <input type="text" 
+                   id="searchInput" 
+                   name="search" 
+                   class="search-input" 
+                   placeholder="Search logs..." 
+                   value="<?= htmlspecialchars($searchQuery) ?>">
+          </div>
+          <button type="submit" class="btn-apply">
+            <i class="fas fa-filter"></i> Apply
+          </button>
         </div>
-        <button type="submit" class="btn-export" style="background: var(--accent-clr);">
-          <i class="fas fa-filter"></i> Apply
-        </button>
       </div>
     </form>
 
@@ -561,7 +689,15 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <div class="modal-body">
         <div class="form-group">
           <label for="exportMonth">Select Month:</label>
-          <input type="month" id="exportMonth" class="form-control" value="<?= date('Y-m') ?>">
+          <input type="month" id="exportMonth" value="<?= date('Y-m') ?>" style="width: 91%;
+          padding: 0.65rem 1rem;
+          border: 1px solid var(--line-clr);
+          border-radius: 6px;
+          background-color: var(--hover-clr);
+          color: var(--text-clr);
+          font-size: 0.95rem;
+          appearance: none;
+          transition: border-color 0.2s, box-shadow 0.2s;">
         </div>
         <div class="export-options">
           <button class="export-btn csv" onclick="exportData('csv')">

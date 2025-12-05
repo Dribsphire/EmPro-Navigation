@@ -90,7 +90,7 @@ class Auth {
      */
     public function requireAdmin(): void {
         if (!$this->isAdmin()) {
-            header('Location: /public/admin/access_denied.php');
+            header('Location:/public/admin/access_denied.php');
             exit();
         }
     }
