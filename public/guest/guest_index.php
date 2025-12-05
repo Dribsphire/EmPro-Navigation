@@ -434,6 +434,100 @@ body { margin: 0; padding: 0; }
         }, 500);
     }
 
+    // Current location marker
+    let currentLocationMarker = null;
+    let locationWatchId = null;
+
+    // Function to create and update current location marker
+    function updateCurrentLocationMarker(lng, lat) {
+        if (!currentLocationMarker) {
+            // Create marker element with default_marker.png
+            const el = document.createElement('div');
+            el.className = 'marker';
+            el.style.backgroundImage = 'url(../../icons/default_marker.png)';
+            el.style.width = '30px';
+            el.style.height = '30px';
+            el.style.backgroundSize = 'contain';
+            el.style.backgroundRepeat = 'no-repeat';
+            el.style.backgroundPosition = 'center';
+            el.style.cursor = 'pointer';
+            el.ariaLabel = 'Your current location';
+            
+            // Create marker
+            currentLocationMarker = new mapboxgl.Marker(el)
+                .setLngLat([lng, lat])
+                .addTo(map);
+        } else {
+            // Update existing marker position
+            currentLocationMarker.setLngLat([lng, lat]);
+        }
+        
+        // Center map on user location if it's the first time
+        if (!locationWatchId) {
+            map.flyTo({
+                center: [lng, lat],
+                zoom: 18,
+                duration: 1000
+            });
+        }
+    }
+
+    // Function to start tracking current location
+    function startLocationTracking() {
+        if (!navigator.geolocation) {
+            console.log('Geolocation is not supported by your browser.');
+            return;
+        }
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 15000, // Increased to 15 seconds
+            maximumAge: 30000 // Accept cached position up to 30 seconds old
+        };
+
+        // Get initial position
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                updateCurrentLocationMarker(lng, lat);
+            },
+            (error) => {
+                // Only log critical errors, timeout is expected sometimes
+                if (error.code === error.PERMISSION_DENIED) {
+                    console.warn('Location permission denied. Please enable location services to see your position on the map.');
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    console.warn('Location unavailable. Please check your device settings.');
+                }
+                // Timeout errors are common and don't need to be logged
+            },
+            options
+        );
+
+        // Watch position for updates with more lenient options
+        locationWatchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                updateCurrentLocationMarker(lng, lat);
+            },
+            (error) => {
+                // Only log non-timeout errors
+                if (error.code === error.PERMISSION_DENIED) {
+                    console.warn('Location permission denied.');
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    console.warn('Location unavailable.');
+                }
+                // Timeout errors during watchPosition are common and expected
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 20000, // Increased timeout for watchPosition
+                maximumAge: 30000 // Accept cached position
+            }
+        );
+    }
+
     map.on('load', async ()=>{
         //set the default atmosphere style
         map.setFog({});
@@ -443,6 +537,10 @@ body { margin: 0; padding: 0; }
         
         // Initialize navigation tracker and real-time sync
         await loadOfficesAndInitTracker();
+        
+        // Start tracking current location
+        startLocationTracking();
+        
         //add a source layer for the school boundaries 
         map.addSource('chmsu', {
         type: 'geojson',
@@ -669,6 +767,13 @@ body { margin: 0; padding: 0; }
     });
     
                 //'line-dasharray': [2, 3]
+    
+    // Cleanup: Stop location tracking when page is unloaded
+    window.addEventListener('beforeunload', () => {
+        if (locationWatchId !== null) {
+            navigator.geolocation.clearWatch(locationWatchId);
+        }
+    });
 </script>
 
 </body>
