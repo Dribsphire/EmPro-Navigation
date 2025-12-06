@@ -105,12 +105,30 @@ class Auth {
     }
 
     public function logout(): void {
+        // Prevent caching - force browser to not cache logout page
+        header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        // Determine user type before destroying session
+        $userType = null;
+        if (isset($_SESSION['auth_user']) && isset($_SESSION['auth_user']['user_type'])) {
+            $userType = $_SESSION['auth_user']['user_type'];
+        } elseif (isset($_SESSION['user_type'])) {
+            $userType = $_SESSION['user_type'];
+        }
+
         $_SESSION = [];
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_destroy();
         }
 
-        header('Location:EmPro-Navigation/public/admin_login.php');
+        // Redirect based on user type
+        if ($userType === 'student') {
+            header('Location: /EmPro-Navigation/public/student_guest_login.php');
+        } else {
+            header('Location: /EmPro-Navigation/public/admin_login.php');
+        }
         exit();
     }
 

@@ -28,10 +28,10 @@
         </a>
       </li>
       <li>
-        <a href="Logout.php">
+        <button type="button" class="logout-trigger">
         <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h280v80H200v560h280v80H200Zm440-160-55-58 102-102H360v-80h327L585-622l55-58 200 200-200 200Z"/></svg>
         <span>Logout</span>
-        </a>
+        </button>
       </li>
       <!--
       <li>
@@ -78,3 +78,120 @@
       </li>
     </ul>-->
   </nav>
+
+  <div id="logout-modal" class="logout-modal" hidden>
+    <div class="logout-modal__dialog">
+      <h3>Confirm Logout</h3>
+      <p>Are you sure you want to Log out?</p>
+      <div class="logout-modal__actions">
+        <button type="button" class="logout-modal__btn logout-modal__btn--cancel">Cancel</button>
+        <button type="button" class="logout-modal__btn logout-modal__btn--confirm">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @media (max-width: 768px) {
+      .logout-trigger {
+        margin-top: 18px !important;
+      }
+      .logout-modal__dialog {
+        width: min(75vw, 361px) !important;
+      }
+    }
+    .logout-trigger {
+      background: none;
+      border: none;
+      color: inherit;
+      width: 100%;
+      padding: 0;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font: inherit;
+      cursor: pointer;
+      margin-left: 16px;
+      margin-top: 8px;
+    }
+    .logout-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .logout-modal[hidden] {
+      display: none;
+    }
+    .logout-modal__dialog {
+      background: #11121a;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 24px;
+      width: min(90vw, 360px);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    }
+    .logout-modal__dialog h3 {
+      margin: 0 0 8px;
+      color: #fff;
+    }
+    .logout-modal__dialog p {
+      margin: 0 0 20px;
+      color: #cbd5f5;
+      font-size: 0.95rem;
+    }
+    .logout-modal__actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+    .logout-modal__btn {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .logout-modal__btn--cancel {
+      background: #2f3548;
+      color: #e2e8f0;
+    }
+    .logout-modal__btn--cancel:hover {
+      background: #3b425a;
+    }
+    .logout-modal__btn--confirm {
+      background: #e11d48;
+      color: #fff;
+    }
+    .logout-modal__btn--confirm:hover {
+      background: #be123c;
+    }
+  </style>
+
+  <script>
+    (function() {
+      const modal = document.getElementById('logout-modal');
+      const trigger = document.querySelector('.logout-trigger');
+      if (!modal || !trigger) return;
+
+      const cancelBtn = modal.querySelector('.logout-modal__btn--cancel');
+      const confirmBtn = modal.querySelector('.logout-modal__btn--confirm');
+
+      const openModal = () => modal.removeAttribute('hidden');
+      const closeModal = () => modal.setAttribute('hidden', 'hidden');
+
+      trigger.addEventListener('click', openModal);
+      cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      confirmBtn.addEventListener('click', () => {
+        window.location.href = 'Logout.php';
+      });
+    })();
+  </script>

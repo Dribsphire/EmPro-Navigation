@@ -38,50 +38,18 @@
                     <tr>
                         <th> ID <span class="icon-arrow">&UpArrow;</span></th>
                         <th> OFFICE <span class="icon-arrow">&UpArrow;</span></th>
+                        <th> STATUS <span class="icon-arrow">&UpArrow;</span></th>
                         <th> TIME <span class="icon-arrow">&UpArrow;</span></th>
                         <th> DATE <span class="icon-arrow">&UpArrow;</span></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="logs-tbody">
+                    <!-- Logs will be loaded dynamically here -->
                     <tr>
-                        <td> 1 </td>
-                        <td> <img src="../../buildings/clinic.jpg" alt="">Clinic Office</td>
-                        <td> 2:32pm </td>
-                        <td>11/2/25</td>
-
+                        <td colspan="5" style="text-align: center; padding: 2rem;">
+                            <p>Loading logs...</p>
+                        </td>
                     </tr>
-                    <tr>
-                        <td> 2 </td>
-                        <td><img src="../../buildings/canteen.jpg" alt=""> Canteen</td>
-                        <td> 9:02am </td>
-                        <td>11/9/25</td>
-                    </tr>
-                    <tr>
-                        <td> 3</td>
-                        <td><img src="../../buildings/avr.png" alt="">Audio Visual Room</td>
-                        <td> 3:30pm </td>
-                        <td>11/12/25</td>
-                    </tr>
-                    <tr>
-                        <td> 4</td>
-                        <td><img src="../../buildings/osa.jpg" alt="">Office of Student Affairs</td>
-                        <td> 4:30pm </td>
-                        <td>11/15/25</td>
-                    </tr>
-                    <tr>
-                        <td> 5</td>
-                        <td><img src="../../buildings/CIT.png" alt=""> CIT Office </td>
-                        <td> 4:45pm </td>
-                        <td>11/20/25</td>
-                    </tr>
-                    <tr>
-                        <td> 6</td>
-                        <td><img src="../../buildings/ccs.png" alt=""> CCS Office </td>
-                        <td> 12:32pm </td>
-                        <td>11/24/25</td>
-                    </tr>
-                    
-                    
                 </tbody>
             </table>
         </section>

@@ -1,54 +1,161 @@
+// Global variables
+let table_rows = [];
+let table_headings = [];
+let search = null;
 
-const search = document.querySelector('.input-group input'),
-    table_rows = document.querySelectorAll('tbody tr'),
+// Load logs from API
+async function loadLogs() {
+    try {
+        const response = await fetch('../../api/get_student_logs.php');
+        const data = await response.json();
+        
+        if (data.status === 'success' && data.logs) {
+            populateTable(data.logs);
+            initializeTableFunctions();
+        } else {
+            showErrorMessage('Failed to load logs');
+        }
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        showErrorMessage('Error loading logs. Please refresh the page.');
+    }
+}
+
+// Populate table with logs
+function populateTable(logs) {
+    const tbody = document.getElementById('logs-tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem;">
+                    <p>No logs found. Start navigating to see your logs here!</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    logs.forEach((log, index) => {
+        const row = document.createElement('tr');
+        const statusText = log.status === 'completed' ? 'completed' : 'cancelled';
+        const statusColor = log.status === 'completed' ? '#10b981' : '#ef4444';
+        
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td><img src="${log.image_path}" alt="${log.office_name}" onerror="this.src='../../buildings/default.png'">${log.office_name}</td>
+            <td style="color: ${statusColor}; font-weight: bold; text-transform: capitalize;">${statusText}</td>
+            <td>${log.time}</td>
+            <td>${log.date}</td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+    
+    // Update table_rows after populating
+    table_rows = Array.from(tbody.querySelectorAll('tr'));
+}
+
+// Show error message
+function showErrorMessage(message) {
+    const tbody = document.getElementById('logs-tbody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #ef4444;">
+                    <p>${message}</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Initialize table functions (search and sort)
+function initializeTableFunctions() {
+    search = document.querySelector('.input-group input');
     table_headings = document.querySelectorAll('thead th');
-
-// 1. Searching for specific data of HTML table
-search.addEventListener('input', searchTable);
+    table_rows = document.querySelectorAll('tbody tr');
+    
+    if (!search || !table_headings.length) return;
+    
+    // 1. Searching for specific data of HTML table
+    search.removeEventListener('input', searchTable);
+    search.addEventListener('input', searchTable);
+    
+    // 2. Sorting | Ordering data of HTML table
+    table_headings.forEach((head, i) => {
+        // Remove existing event listeners by cloning
+        const newHead = head.cloneNode(true);
+        head.parentNode.replaceChild(newHead, head);
+        
+        let sort_asc = true;
+        newHead.onclick = () => {
+            table_headings.forEach(h => h.classList.remove('active'));
+            newHead.classList.add('active');
+            
+            document.querySelectorAll('td').forEach(td => td.classList.remove('active'));
+            table_rows.forEach(row => {
+                const tds = row.querySelectorAll('td');
+                if (tds[i]) tds[i].classList.add('active');
+            });
+            
+            newHead.classList.toggle('asc', sort_asc);
+            sort_asc = newHead.classList.contains('asc') ? false : true;
+            
+            sortTable(i, sort_asc);
+        };
+    });
+    
+    // Update table_headings reference
+    table_headings = document.querySelectorAll('thead th');
+}
 
 function searchTable() {
+    if (!search) return;
+    
+    const search_data = search.value.toLowerCase();
+    table_rows = document.querySelectorAll('tbody tr');
+    
     table_rows.forEach((row, i) => {
-        let table_data = row.textContent.toLowerCase(),
-            search_data = search.value.toLowerCase();
-
+        let table_data = row.textContent.toLowerCase();
         row.classList.toggle('hide', table_data.indexOf(search_data) < 0);
         row.style.setProperty('--delay', i / 25 + 's');
-    })
+    });
 
     document.querySelectorAll('tbody tr:not(.hide)').forEach((visible_row, i) => {
         visible_row.style.backgroundColor = (i % 2 == 0) ? 'transparent' : '#0000000b';
     });
 }
 
-// 2. Sorting | Ordering data of HTML table
-
-table_headings.forEach((head, i) => {
-    let sort_asc = true;
-    head.onclick = () => {
-        table_headings.forEach(head => head.classList.remove('active'));
-        head.classList.add('active');
-
-        document.querySelectorAll('td').forEach(td => td.classList.remove('active'));
-        table_rows.forEach(row => {
-            row.querySelectorAll('td')[i].classList.add('active');
-        })
-
-        head.classList.toggle('asc', sort_asc);
-        sort_asc = head.classList.contains('asc') ? false : true;
-
-        sortTable(i, sort_asc);
-    }
-})
-
-
 function sortTable(column, sort_asc) {
+    table_rows = document.querySelectorAll('tbody tr');
+    const tbody = document.querySelector('tbody');
+    
     [...table_rows].sort((a, b) => {
-        let first_row = a.querySelectorAll('td')[column].textContent.toLowerCase(),
-            second_row = b.querySelectorAll('td')[column].textContent.toLowerCase();
-
+        const tdsA = a.querySelectorAll('td');
+        const tdsB = b.querySelectorAll('td');
+        
+        if (!tdsA[column] || !tdsB[column]) return 0;
+        
+        let first_row = tdsA[column].textContent.toLowerCase();
+        let second_row = tdsB[column].textContent.toLowerCase();
+        
+        // Handle numeric sorting for ID column
+        if (column === 0) {
+            first_row = parseInt(first_row) || 0;
+            second_row = parseInt(second_row) || 0;
+            return sort_asc ? (first_row - second_row) : (second_row - first_row);
+        }
+        
         return sort_asc ? (first_row < second_row ? 1 : -1) : (first_row < second_row ? -1 : 1);
     })
-        .map(sorted_row => document.querySelector('tbody').appendChild(sorted_row));
+    .forEach(sorted_row => tbody.appendChild(sorted_row));
+    
+    // Update table_rows after sorting
+    table_rows = document.querySelectorAll('tbody tr');
 }
 
 // 3. Converting HTML table to PDF
@@ -83,15 +190,8 @@ pdf_btn.onclick = () => {
 const csv_btn = document.querySelector('#toCSV');
 
 const toCSV = function (table) {
-    // Code For SIMPLE TABLE
-    // const t_rows = table.querySelectorAll('tr');
-    // return [...t_rows].map(row => {
-    //     const cells = row.querySelectorAll('th, td');
-    //     return [...cells].map(cell => cell.textContent.trim()).join(',');
-    // }).join('\n');
-
     const t_heads = table.querySelectorAll('th'),
-        tbody_rows = table.querySelectorAll('tbody tr');
+        tbody_rows = table.querySelectorAll('tbody tr:not(.hide)');
 
     const headings = [...t_heads].map(head => {
         let actual_head = head.textContent.trim().split(' ');
@@ -99,9 +199,10 @@ const toCSV = function (table) {
     }).join(',') + ',' + 'image name';
 
     const table_data = [...tbody_rows].map(row => {
-        const cells = row.querySelectorAll('td'),
-            img = decodeURIComponent(row.querySelector('img').src),
-            data_without_img = [...cells].map(cell => cell.textContent.replace(/,/g, ".").trim()).join(',');
+        const cells = row.querySelectorAll('td');
+        const imgElement = row.querySelector('img');
+        const img = imgElement ? decodeURIComponent(imgElement.src) : '';
+        const data_without_img = [...cells].map(cell => cell.textContent.replace(/,/g, ".").trim()).join(',');
 
         return data_without_img + ',' + img;
     }).join('\n');
@@ -119,15 +220,8 @@ csv_btn.onclick = () => {
 const excel_btn = document.querySelector('#toEXCEL');
 
 const toExcel = function (table) {
-    // Code For SIMPLE TABLE
-    // const t_rows = table.querySelectorAll('tr');
-    // return [...t_rows].map(row => {
-    //     const cells = row.querySelectorAll('th, td');
-    //     return [...cells].map(cell => cell.textContent.trim()).join('\t');
-    // }).join('\n');
-
     const t_heads = table.querySelectorAll('th'),
-        tbody_rows = table.querySelectorAll('tbody tr');
+        tbody_rows = table.querySelectorAll('tbody tr:not(.hide)');
 
     const headings = [...t_heads].map(head => {
         let actual_head = head.textContent.trim().split(' ');
@@ -135,9 +229,10 @@ const toExcel = function (table) {
     }).join('\t') + '\t' + 'image name';
 
     const table_data = [...tbody_rows].map(row => {
-        const cells = row.querySelectorAll('td'),
-            img = decodeURIComponent(row.querySelector('img').src),
-            data_without_img = [...cells].map(cell => cell.textContent.trim()).join('\t');
+        const cells = row.querySelectorAll('td');
+        const imgElement = row.querySelector('img');
+        const img = imgElement ? decodeURIComponent(imgElement.src) : '';
+        const data_without_img = [...cells].map(cell => cell.textContent.trim()).join('\t');
 
         return data_without_img + '\t' + img;
     }).join('\n');
@@ -167,3 +262,8 @@ const downloadFile = function (data, fileType, fileName = '') {
     a.click();
     a.remove();
 }
+
+// Load logs when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    loadLogs();
+});
