@@ -39,21 +39,66 @@ if (!$student) {
     exit;
 }
 
-// Get recent logs (visits) - last 10
+// Get recent navigation logs - first 3 most recent
 $logsStmt = $conn->prepare("
     SELECT 
+        nl.log_id,
+        nl.office_id,
         o.office_name,
-        uv.visit_time,
-        oi.image_path as office_image
-    FROM user_visits uv
-    INNER JOIN offices o ON o.office_id = uv.office_id
+        oi.image_path,
+        nl.start_time,
+        nl.end_time,
+        nl.status,
+        nl.created_at
+    FROM navigation_logs nl
+    INNER JOIN offices o ON o.office_id = nl.office_id
     LEFT JOIN office_images oi ON oi.office_id = o.office_id AND oi.is_primary = 1
-    WHERE uv.user_id = :user_id
-    ORDER BY uv.visit_time DESC
-    LIMIT 10
+    WHERE nl.user_id = :user_id 
+    AND nl.status IN ('completed', 'cancelled')
+    ORDER BY nl.end_time DESC, nl.start_time DESC
+    LIMIT 3
 ");
 $logsStmt->execute([':user_id' => $userId]);
 $logs = $logsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Format logs for display
+$formattedLogs = [];
+foreach ($logs as $log) {
+    // Format the image path - ensure correct path from student_profile.php location
+    // student_profile.php is in public/student/, so we need ../../ to reach root, then buildings/
+    $imagePath = '../images/CHMSU.png'; // Default fallback
+    if (!empty($log['image_path']) && trim($log['image_path']) !== '') {
+        $dbPath = trim($log['image_path']);
+        // Check if path already includes the directory
+        if (strpos($dbPath, 'buildings/') === 0) {
+            // Path like "buildings/office_6_marker.png" -> "../../buildings/office_6_marker.png"
+            $imagePath = '../../' . $dbPath;
+        } elseif (strpos($dbPath, 'building_content/') === 0) {
+            // Path like "building_content/office_6_xxx.jpg" -> "../../building_content/office_6_xxx.jpg"
+            $imagePath = '../../' . $dbPath;
+        } elseif (strpos($dbPath, '../') === 0 || strpos($dbPath, '/') === 0) {
+            // Already has relative or absolute path, use as is
+            $imagePath = $dbPath;
+        } else {
+            // Assume it's just a filename, prepend buildings/
+            $imagePath = '../../buildings/' . $dbPath;
+        }
+    }
+    
+    // Format date and time
+    $endTime = $log['end_time'] ? new DateTime($log['end_time']) : new DateTime($log['start_time']);
+    $date = $endTime->format('M d, Y');
+    $time = $endTime->format('h:i A');
+    
+    $formattedLogs[] = [
+        'office_name' => $log['office_name'],
+        'image_path' => $imagePath,
+        'status' => $log['status'],
+        'date' => $date,
+        'time' => $time,
+        'timestamp' => $endTime->format('Y-m-d H:i:s')
+    ];
+}
 
 // Use email from users table if student email is null
 $email = $student['email'] ?: $student['user_email'];
@@ -123,19 +168,34 @@ $sectionCode = $student['section_code'] ?: 'N/A';
                             <thead>
                                 <tr>
                                     <th>Office</th>
-                                    <th>Timestamp</th>
+                                    <th>Status</th>
+                                    <th>Date & Time</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php if (empty($logs)): ?>
+                                <?php if (empty($formattedLogs)): ?>
                                     <tr>
-                                        <td colspan="2" style="text-align: center; color: var(--secondary-color);">No visits recorded yet.</td>
+                                        <td colspan="3" style="text-align: center; color: var(--secondary-color);">No logs recorded yet.</td>
                                     </tr>
                                 <?php else: ?>
-                                    <?php foreach ($logs as $log): ?>
+                                    <?php foreach ($formattedLogs as $log): ?>
                                         <tr>
-                                            <td><?= htmlspecialchars($log['office_name']); ?></td>
-                                            <td><?= date('M d, Y h:i A', strtotime($log['visit_time'])); ?></td>
+                                            <td style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <img src="<?= htmlspecialchars($log['image_path']); ?>" 
+                                                     alt="<?= htmlspecialchars($log['office_name']); ?>" 
+                                                     onerror="if(this.src.indexOf('CHMSU.png') === -1 && this.src.indexOf('default') === -1) { this.onerror=null; this.src='../images/CHMSU.png'; }"
+                                                     loading="lazy">
+                                                <span><?= htmlspecialchars($log['office_name']); ?></span>
+                                            </td>
+                                            <td style="color: <?= $log['status'] === 'completed' ? '#10b981' : '#ef4444'; ?>; font-weight: bold; text-transform: capitalize;">
+                                                <?= htmlspecialchars($log['status']); ?>
+                                            </td>
+                                            <td>
+                                                <div style="display: flex; flex-direction: column;">
+                                                    <span><?= htmlspecialchars($log['date']); ?></span>
+                                                    <span style="font-size: 0.85rem; color: var(--secondary-color);"><?= htmlspecialchars($log['time']); ?></span>
+                                                </div>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -358,6 +418,42 @@ html {
 .logs-table td:first-child {
     font-weight: 500;
     color: var(--accent-color);
+}
+
+.logs-table td:first-child img {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background-color: var(--secondary-bg);
+    border: 2px solid var(--border-color);
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transition: opacity 0.2s ease;
+}
+
+.logs-table td:first-child img[src=""],
+.logs-table td:first-child img:not([src]) {
+    opacity: 0;
+}
+
+.logs-table td:first-child img {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background-color: var(--secondary-bg);
+    border: 2px solid var(--border-color);
+    display: block;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
 }
 .account-info {
         display: grid;

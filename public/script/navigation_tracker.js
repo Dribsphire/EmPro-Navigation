@@ -9,12 +9,6 @@ class NavigationTracker {
         this.radiusCircles = new Map(); // Store circle layers
         this.defaultRadius = 50; // Default radius in meters
         this.hasEnteredRadius = false;
-<<<<<<< HEAD
-        this.routeSourceId = 'navigation-route';
-        this.routeLayerId = 'navigation-route-layer';
-        this.lastRouteUpdate = null;
-        this.routeUpdateInterval = 5000; // Update route every 5 seconds
-=======
         this.routeFinder = null; // Route finder instance
         
         // ============================================
@@ -39,7 +33,6 @@ class NavigationTracker {
                 });
             }
         }
->>>>>>> 158941c8325f010548e2149f09574b7d6dd79576
         
         // Initialize radius circles for all offices after map loads
         if (this.map.loaded()) {
@@ -145,6 +138,27 @@ class NavigationTracker {
      * Start navigation to an office
      */
     async startNavigation(office) {
+        console.log('startNavigation called with:', office);
+        
+        // Validate office data
+        if (!office) {
+            console.error('No office provided to startNavigation');
+            alert('Error: No office selected for navigation.');
+            return;
+        }
+        
+        if (!office.lngLat || !Array.isArray(office.lngLat) || office.lngLat.length !== 2) {
+            console.error('Invalid office coordinates:', office.lngLat);
+            alert('Error: Invalid office location data.');
+            return;
+        }
+        
+        if (!office.name && !office.office_id) {
+            console.error('Office missing name and office_id:', office);
+            alert('Error: Office information is incomplete.');
+            return;
+        }
+        
         // Stop any existing navigation
         this.stopNavigation();
 
@@ -167,11 +181,15 @@ class NavigationTracker {
         this.highlightRadius(office);
 
         // Start logging navigation
+        console.log('Logging navigation start for office:', office.name || office.office_id);
         const logId = await this.logNavigationStart(office);
         if (!logId) {
-            alert('Failed to start navigation logging.');
+            console.error('Failed to get log ID from API');
+            alert('Failed to start navigation logging. Please try again.');
             return;
         }
+        
+        console.log('Navigation log created with ID:', logId);
 
         this.currentNavigation = {
             office: office,
@@ -566,23 +584,38 @@ if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
      */
     async logNavigationStart(office) {
         try {
+            const requestData = {
+                action: 'start',
+                office_id: office.office_id || null,
+                office_name: office.name || null
+            };
+            
+            console.log('Sending navigation start request:', requestData);
+            
             const response = await fetch('../../api/log_navigation.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    action: 'start',
-                    office_id: office.office_id || null,
-                    office_name: office.name
-                })
+                body: JSON.stringify(requestData)
             });
 
+            if (!response.ok) {
+                console.error('API response not OK:', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                return null;
+            }
+
             const result = await response.json();
+            console.log('Navigation start API response:', result);
+            
             if (result.status === 'success') {
                 return result.log_id;
+            } else {
+                console.error('API returned error status:', result.message || 'Unknown error');
+                return null;
             }
-            return null;
         } catch (error) {
             console.error('Error logging navigation start:', error);
             return null;

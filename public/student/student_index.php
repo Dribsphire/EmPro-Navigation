@@ -269,14 +269,23 @@ body { margin: 0; padding: 0; }
                             (b.office_id && b.office_id == navBtn.dataset.officeId)
                         );
                         if (buildingToNavigate && window.navigationTracker) {
+                            console.log('Building found:', buildingToNavigate);
                             const officeData = {
                                 ...buildingToNavigate,
                                 office_id: buildingToNavigate.office_id || null,
+                                name: buildingToNavigate.name,
+                                lngLat: buildingToNavigate.lngLat,
                                 radius: buildingToNavigate.radius || 50
                             };
+                            console.log('Starting navigation with office data:', officeData);
                             window.navigationTracker.startNavigation(officeData);
                         } else {
-                            console.log('Start navigation to:', navBtn.dataset.building);
+                            console.error('Cannot start navigation:', {
+                                buildingToNavigate: buildingToNavigate,
+                                navigationTracker: window.navigationTracker,
+                                buildingName: navBtn.dataset.building,
+                                officeId: navBtn.dataset.officeId
+                            });
                         }
                     });
                 }

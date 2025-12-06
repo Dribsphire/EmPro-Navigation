@@ -80,10 +80,18 @@ try {
 
     echo json_encode([
         'status' => 'success',
-        'logs' => $logs
+        'logs' => $logs,
+        'count' => count($logs)
     ]);
 
 } catch (PDOException $e) {
+    error_log('Error fetching student logs: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Failed to fetch logs: ' . $e->getMessage()
+    ]);
+} catch (Exception $e) {
     error_log('Error fetching student logs: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode([

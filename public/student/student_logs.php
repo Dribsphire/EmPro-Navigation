@@ -53,6 +53,34 @@
                 </tbody>
             </table>
         </section>
+        <div id="pagination-container" style="display: none; padding: 1rem; text-align: center;">
+            <div id="pagination-controls" style="display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <button id="prev-page-btn" class="pagination-btn" style="
+                    background-color: #6b7280;
+                    color: white;
+                    border: none;
+                    padding: 0.6rem 1.2rem;
+                    border-radius: 0.5rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    transition: background-color 0.2s ease;
+                " onmouseover="this.style.backgroundColor='#4b5563'" onmouseout="this.style.backgroundColor='#6b7280'">Previous</button>
+                <div id="page-numbers" style="display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: center;"></div>
+                <button id="next-page-btn" class="pagination-btn" style="
+                    background-color: #6b7280;
+                    color: white;
+                    border: none;
+                    padding: 0.6rem 1.2rem;
+                    border-radius: 0.5rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    transition: background-color 0.2s ease;
+                " onmouseover="this.style.backgroundColor='#4b5563'" onmouseout="this.style.backgroundColor='#6b7280'">Next</button>
+            </div>
+            <div id="page-info" style="margin-top: 0.5rem; color: var(--secondary-color); font-size: 0.85rem;"></div>
+        </div>
     </main>
     
 </body>
@@ -239,11 +267,105 @@ tbody tr.hide td img {
     }
 }
 @media screen and (max-width: 768px) {
-    .main-table{
-        height: 90vh;
-        border-radius: .8rem;
-        overflow: hidden;
-        display:hidden;
+    main.table {
+        width: 95vw;
+        height: 95vh;
+        margin: 0.5rem;
+    }
+    
+    .table__header {
+        flex-direction: column;
+        height: auto;
+        padding: 0.8rem;
+        gap: 0.8rem;
+    }
+    
+    .table__header h1 {
+        font-size: 1.2rem;
+        margin: 0;
+    }
+    
+    .table__header .input-group {
+        width: 100%;
+        order: 2;
+    }
+    
+    .table__header .export__file {
+        order: 3;
+        align-self: flex-end;
+    }
+    
+    .table__body {
+        width: 100%;
+        margin: 0.5rem 0;
+        max-height: calc(95vh - 150px);
+        font-size: 0.85rem;
+    }
+    
+    table, th, td {
+        padding: 0.5rem 0.3rem;
+        font-size: 0.8rem;
+    }
+    
+    thead th {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.3rem;
+    }
+    
+    td img {
+        width: 28px;
+        height: 28px;
+        margin-right: 0.3rem;
+    }
+    
+    thead th span.icon-arrow {
+        width: 0.9rem;
+        height: 0.9rem;
+        font-size: 0.7rem;
+        margin-left: 0.2rem;
+    }
+    
+    #pagination-container {
+        padding: 0.8rem;
+    }
+    
+    #pagination-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .pagination-btn {
+        width: 100%;
+        padding: 0.7rem;
+        font-size: 0.9rem;
+    }
+    
+    #page-numbers {
+        width: 100%;
+        justify-content: center;
+        gap: 0.3rem;
+    }
+    
+    .page-number-btn {
+        flex: 1;
+        max-width: 3rem;
+        min-width: 2.5rem;
+        height: 2.5rem;
+        font-size: 0.85rem;
+    }
+    
+    #page-info {
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+    
+    table {
+        min-width: 100%;
+        display: table;
+    }
+    
+    table, th, td {
+        white-space: nowrap;
     }
 }
 
@@ -356,5 +478,49 @@ thead th.active,tbody td.active {
 .export__file .export__file-options img{
     width: 2rem;
     height: auto;
+}
+
+/* Pagination Container Styles - Desktop */
+#pagination-container {
+    padding: 1rem;
+    text-align: center;
+}
+
+#pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pagination-btn {
+    transition: background-color 0.2s ease;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+}
+
+.pagination-btn:disabled:hover {
+    background-color: #6b7280 !important;
+}
+
+.page-number-btn {
+    transition: background-color 0.2s ease;
+}
+
+#page-numbers {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+#page-info {
+    margin-top: 0.5rem;
+    color: var(--secondary-color);
+    font-size: 0.85rem;
 }
 </style>
