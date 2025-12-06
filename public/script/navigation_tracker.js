@@ -9,6 +9,12 @@ class NavigationTracker {
         this.radiusCircles = new Map(); // Store circle layers
         this.defaultRadius = 50; // Default radius in meters
         this.hasEnteredRadius = false;
+<<<<<<< HEAD
+        this.routeSourceId = 'navigation-route';
+        this.routeLayerId = 'navigation-route-layer';
+        this.lastRouteUpdate = null;
+        this.routeUpdateInterval = 5000; // Update route every 5 seconds
+=======
         this.routeFinder = null; // Route finder instance
         
         // ============================================
@@ -33,6 +39,7 @@ class NavigationTracker {
                 });
             }
         }
+>>>>>>> 158941c8325f010548e2149f09574b7d6dd79576
         
         // Initialize radius circles for all offices after map loads
         if (this.map.loaded()) {
@@ -178,8 +185,8 @@ class NavigationTracker {
         // Request location permission and start tracking
         const options = {
             enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
+            timeout: 15000, // Increased to 15 seconds
+            maximumAge: 30000 // Accept cached position up to 30 seconds old
         };
 
         // ============================================
@@ -293,16 +300,20 @@ class NavigationTracker {
             this.watchId = null;
         }
 
-        // Clear static location interval if in testing mode
-        if (this.staticLocationInterval) {
-            clearInterval(this.staticLocationInterval);
-            this.staticLocationInterval = null;
-        }
+// Clear static location interval if in testing mode
+if (this.staticLocationInterval) {
+    clearInterval(this.staticLocationInterval);
+    this.staticLocationInterval = null;
+}
 
-        // Remove route from map
-        if (this.routeFinder) {
-            this.routeFinder.removeRoute();
-        }
+// Remove route from map
+// Use routeFinder if available, otherwise fallback to this.removeRoute()
+if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
+    this.routeFinder.removeRoute();
+} else if (typeof this.removeRoute === "function") {
+    this.removeRoute();
+}
+
 
         if (this.currentNavigation) {
             this.logNavigationEnd(this.currentNavigation.logId, this.hasEnteredRadius);
@@ -312,6 +323,7 @@ class NavigationTracker {
         }
 
         this.hasEnteredRadius = false;
+        this.lastRouteUpdate = null;
     }
 
     /**
@@ -334,6 +346,13 @@ class NavigationTracker {
 
         // Update status display
         this.updateNavigationStatus(distance);
+
+        // Update route if enough time has passed since last update
+        const now = Date.now();
+        if (!this.lastRouteUpdate || (now - this.lastRouteUpdate) > this.routeUpdateInterval) {
+            this.updateRoute(lng, lat, officeLng, officeLat);
+            this.lastRouteUpdate = now;
+        }
 
         // Check if user entered radius
         if (!this.hasEnteredRadius && distance <= this.currentNavigation.radius) {
@@ -382,24 +401,29 @@ class NavigationTracker {
      * Handle geolocation errors
      */
     handleLocationError(error) {
+        // Don't show notifications for timeout errors during active navigation
+        // as they're common and the system will retry automatically
+        if (error.code === error.TIMEOUT) {
+            // Timeout is expected sometimes, just log it quietly
+            console.log('Location update timeout - will retry automatically');
+            return;
+        }
+
         let message = 'Error getting location: ';
         switch(error.code) {
             case error.PERMISSION_DENIED:
                 message += 'Permission denied. Please enable location services.';
+                this.showNotification(message, 'error');
                 break;
             case error.POSITION_UNAVAILABLE:
-                message += 'Position unavailable.';
-                break;
-            case error.TIMEOUT:
-                message += 'Request timeout.';
+                message += 'Position unavailable. Please check your device settings.';
+                this.showNotification(message, 'error');
                 break;
             default:
                 message += 'Unknown error.';
+                console.error(message);
                 break;
         }
-        
-        console.error(message);
-        this.showNotification(message, 'error');
     }
 
     /**
@@ -604,6 +628,94 @@ class NavigationTracker {
             });
         } catch (error) {
             console.error('Error logging navigation reached:', error);
+        }
+    }
+
+    /**
+     * Fetch route from Mapbox Directions API
+     */
+    async fetchRoute(startLng, startLat, endLng, endLat) {
+        try {
+            const accessToken = mapboxgl.accessToken;
+            const profile = 'walking'; // Use walking profile for campus navigation
+            const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${startLng},${startLat};${endLng},${endLat}?geometries=geojson&access_token=${accessToken}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Directions API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                return data.routes[0].geometry;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error fetching route:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Update route on map
+     */
+    async updateRoute(startLng, startLat, endLng, endLat) {
+        const geometry = await this.fetchRoute(startLng, startLat, endLng, endLat);
+        
+        if (!geometry) {
+            console.warn('Could not fetch route');
+            return;
+        }
+
+        // Wait for map to be ready
+        if (!this.map.loaded()) {
+            this.map.once('load', () => this.updateRoute(startLng, startLat, endLng, endLat));
+            return;
+        }
+
+        const routeGeoJSON = {
+            type: 'Feature',
+            properties: {},
+            geometry: geometry
+        };
+
+        // Remove existing route if present
+        if (this.map.getSource(this.routeSourceId)) {
+            this.map.getSource(this.routeSourceId).setData(routeGeoJSON);
+        } else {
+            // Add route source
+            this.map.addSource(this.routeSourceId, {
+                type: 'geojson',
+                data: routeGeoJSON
+            });
+
+            // Add route layer
+            this.map.addLayer({
+                id: this.routeLayerId,
+                type: 'line',
+                source: this.routeSourceId,
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#4f46e5',
+                    'line-width': 5,
+                    'line-opacity': 0.75
+                }
+            });
+        }
+    }
+
+    /**
+     * Remove route from map
+     */
+    removeRoute() {
+        if (this.map.getLayer(this.routeLayerId)) {
+            this.map.removeLayer(this.routeLayerId);
+        }
+        if (this.map.getSource(this.routeSourceId)) {
+            this.map.removeSource(this.routeSourceId);
         }
     }
 }
