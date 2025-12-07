@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Admin-EmPro::</title>
     <link rel="icon" type="image/png" href="images/logo2.png">
     <link rel="stylesheet" type="text/css" href="css/login_student_guest.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         /* Admin-specific overrides */
         .container:before {
@@ -75,6 +76,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             white-space: pre-wrap;
             border-top: 1px solid rgba(148, 163, 184, 0.4);
         }
+        
+        /* Password toggle icon styling */
+        .input-field .toggle-password {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #acacac;
+            z-index: 10;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+        }
+        
+        .input-field .toggle-password:hover {
+            color: #666;
+        }
+        
+        /* Adjust input padding to prevent text overlap with eye icon */
+        .input-field input[type="password"],
+        .input-field input[type="text"] {
+            padding-right: 40px;
+        }
     </style>
 </head>
 <body>
@@ -99,9 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <i class="fas fa-user-shield"></i>
                         <input type="text" name="school_id" placeholder="Admin ID" required />
                     </div>
-                    <div class="input-field">
+                    <div class="input-field" style="position: relative;">
                         <i class="fas fa-lock"></i>
-                        <input type="password" name="password" placeholder="Password" required />
+                        <input type="password" id="password-input" name="password" placeholder="Password" autocomplete="off" readonly onfocus="this.removeAttribute('readonly');" required />
+                        <i class="fas fa-eye toggle-password" id="toggle-password" onclick="togglePasswordVisibility()"></i>
                     </div>
                     <input type="submit" value="Login" class="btn solid" />
                     <p class="social-text">Restricted Access - Authorized Personnel Only</p>
@@ -119,9 +144,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
 
-    <!-- Font Awesome for icons -->
-    <script src="https://kit.fontawesome.com/your-code.js" crossorigin="anonymous"></script>
     <script>
+        // Prevent password autocomplete suggestions - aggressive approach
+        const passwordInput = document.getElementById('password-input');
+        if (passwordInput) {
+            // Multiple methods to prevent autocomplete
+            passwordInput.setAttribute('autocomplete', 'off');
+            passwordInput.setAttribute('data-lpignore', 'true'); // LastPass ignore
+            passwordInput.setAttribute('data-form-type', 'other');
+            passwordInput.setAttribute('data-1p-ignore', 'true'); // 1Password ignore
+            passwordInput.setAttribute('data-bwignore', 'true'); // Bitwarden ignore
+            
+            // Prevent autocomplete on focus
+            passwordInput.addEventListener('focus', function() {
+                this.setAttribute('autocomplete', 'off');
+                this.setAttribute('data-lpignore', 'true');
+                // Remove readonly if still present
+                this.removeAttribute('readonly');
+            }, true);
+            
+            // Prevent autocomplete on click
+            passwordInput.addEventListener('click', function() {
+                this.setAttribute('autocomplete', 'off');
+                this.setAttribute('data-lpignore', 'true');
+                this.removeAttribute('readonly');
+            }, true);
+            
+            // Prevent autocomplete when typing first character
+            let isFirstChar = true;
+            passwordInput.addEventListener('keydown', function(e) {
+                // Reset flag if field is cleared
+                if (this.value.length === 0) {
+                    isFirstChar = true;
+                }
+                
+                // If it's the first character being typed
+                if (isFirstChar && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                    // Temporarily change to text type to break autocomplete
+                    const wasPassword = this.type === 'password';
+                    if (wasPassword) {
+                        this.type = 'text';
+                        // Force browser to not show autocomplete
+                        this.setAttribute('autocomplete', 'off');
+                        setTimeout(() => {
+                            this.type = 'password';
+                            isFirstChar = false;
+                        }, 10);
+                    }
+                } else {
+                    isFirstChar = false;
+                }
+                
+                // Always ensure autocomplete is off
+                this.setAttribute('autocomplete', 'off');
+                this.setAttribute('data-lpignore', 'true');
+            }, true);
+            
+            // Prevent autocomplete on input
+            passwordInput.addEventListener('input', function() {
+                this.setAttribute('autocomplete', 'off');
+                this.setAttribute('data-lpignore', 'true');
+            }, true);
+        }
+        
+        // Toggle password visibility
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password-input');
+            const toggleIcon = document.getElementById('toggle-password');
+            
+            if (passwordInput && toggleIcon) {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    toggleIcon.classList.remove('fa-eye-slash');
+                    toggleIcon.classList.add('fa-eye');
+                }
+            }
+        }
+        
         // Simple form validation
         document.querySelector('.sign-in-form').addEventListener('submit', function(e) {
             const schoolId = document.querySelector('input[name="school_id"]').value.trim();

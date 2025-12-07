@@ -10,6 +10,8 @@ class NavigationTracker {
         this.defaultRadius = 50; // Default radius in meters
         this.hasEnteredRadius = false;
         this.routeFinder = null; // Route finder instance
+        this.routeSourceId = 'navigation-route';
+        this.routeLayerId = 'navigation-route-layer';
         
         // ============================================
         // TESTING MODE: Static location within school
@@ -324,12 +326,16 @@ if (this.staticLocationInterval) {
     this.staticLocationInterval = null;
 }
 
-// Remove route from map
-// Use routeFinder if available, otherwise fallback to this.removeRoute()
+// Remove route from map - use RouteFinder only
 if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
     this.routeFinder.removeRoute();
-} else if (typeof this.removeRoute === "function") {
-    this.removeRoute();
+}
+// Also remove NavigationTracker's route if it exists (for cleanup)
+if (this.map.getLayer(this.routeLayerId)) {
+    this.map.removeLayer(this.routeLayerId);
+}
+if (this.map.getSource(this.routeSourceId)) {
+    this.map.removeSource(this.routeSourceId);
 }
 
 
@@ -366,9 +372,15 @@ if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
         this.updateNavigationStatus(distance);
 
         // Update route if enough time has passed since last update
+        // Use RouteFinder instead of NavigationTracker's updateRoute to avoid duplicate routes
         const now = Date.now();
         if (!this.lastRouteUpdate || (now - this.lastRouteUpdate) > this.routeUpdateInterval) {
-            this.updateRoute(lng, lat, officeLng, officeLat);
+            if (this.routeFinder) {
+                // Only update route using RouteFinder (footwalk network)
+                this.routeFinder.updateRoute(lng, lat, officeLng, officeLat).catch(err => {
+                    console.error('Error updating route:', err);
+                });
+            }
             this.lastRouteUpdate = now;
         }
 
@@ -664,92 +676,8 @@ if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
         }
     }
 
-    /**
-     * Fetch route from Mapbox Directions API
-     */
-    async fetchRoute(startLng, startLat, endLng, endLat) {
-        try {
-            const accessToken = mapboxgl.accessToken;
-            const profile = 'walking'; // Use walking profile for campus navigation
-            const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${startLng},${startLat};${endLng},${endLat}?geometries=geojson&access_token=${accessToken}`;
-            
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Directions API error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                return data.routes[0].geometry;
-            }
-            return null;
-        } catch (error) {
-            console.error('Error fetching route:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Update route on map
-     */
-    async updateRoute(startLng, startLat, endLng, endLat) {
-        const geometry = await this.fetchRoute(startLng, startLat, endLng, endLat);
-        
-        if (!geometry) {
-            console.warn('Could not fetch route');
-            return;
-        }
-
-        // Wait for map to be ready
-        if (!this.map.loaded()) {
-            this.map.once('load', () => this.updateRoute(startLng, startLat, endLng, endLat));
-            return;
-        }
-
-        const routeGeoJSON = {
-            type: 'Feature',
-            properties: {},
-            geometry: geometry
-        };
-
-        // Remove existing route if present
-        if (this.map.getSource(this.routeSourceId)) {
-            this.map.getSource(this.routeSourceId).setData(routeGeoJSON);
-        } else {
-            // Add route source
-            this.map.addSource(this.routeSourceId, {
-                type: 'geojson',
-                data: routeGeoJSON
-            });
-
-            // Add route layer
-            this.map.addLayer({
-                id: this.routeLayerId,
-                type: 'line',
-                source: this.routeSourceId,
-                layout: {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                paint: {
-                    'line-color': '#4f46e5',
-                    'line-width': 5,
-                    'line-opacity': 0.75
-                }
-            });
-        }
-    }
-
-    /**
-     * Remove route from map
-     */
-    removeRoute() {
-        if (this.map.getLayer(this.routeLayerId)) {
-            this.map.removeLayer(this.routeLayerId);
-        }
-        if (this.map.getSource(this.routeSourceId)) {
-            this.map.removeSource(this.routeSourceId);
-        }
-    }
+    // Note: Route drawing is now handled exclusively by RouteFinder class
+    // NavigationTracker no longer draws routes directly to avoid duplicate route lines
+    // All route drawing uses the footwalk network from chmsu.geojson (including footwalk and hidden_footwalk)
 }
 

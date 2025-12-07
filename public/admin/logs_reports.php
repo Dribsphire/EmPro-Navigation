@@ -100,7 +100,8 @@ $sql = "
             WHEN nl.user_id IS NOT NULL THEN 'Student'
             WHEN nl.guest_id IS NOT NULL THEN 'Guest'
             ELSE 'Unknown'
-        END as user_role
+        END as user_role,
+        g.reason as guest_reason
     FROM navigation_logs nl
     LEFT JOIN offices o ON nl.office_id = o.office_id
     LEFT JOIN office_images oi ON o.office_id = oi.office_id AND oi.is_primary = 1
@@ -359,6 +360,11 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       background-color: var(--hover-clr);
     }
 
+    tr.guest-row:hover {
+      background-color: var(--hover-clr);
+      opacity: 0.9;
+    }
+
     .office-cell {
       display: flex;
       align-items: center;
@@ -613,7 +619,12 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </tr>
           <?php else: ?>
             <?php foreach ($logs as $index => $log): ?>
-              <tr>
+              <tr class="<?= $log['user_role'] === 'Guest' ? 'guest-row' : '' ?>" 
+                  <?php if ($log['user_role'] === 'Guest'): ?>
+                    data-guest-name="<?= htmlspecialchars($log['user_name'], ENT_QUOTES) ?>"
+                    data-guest-reason="<?= htmlspecialchars($log['guest_reason'] ?? '', ENT_QUOTES) ?>"
+                    style="cursor: pointer;"
+                  <?php endif; ?>>
                 <td><?= $offset + $index + 1 ?></td>
                 <td><?= htmlspecialchars($log['user_name']) ?></td>
                 <td>
@@ -708,6 +719,26 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
   </div>
 
+  <!-- Guest Reason Modal -->
+  <div id="guestReasonModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2>Guest Information</h2>
+        <button class="close-modal" onclick="closeModal('guestReasonModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; margin-bottom: 0.5rem; color: var(--secondary-text-clr); font-weight: 500;">Guest Name:</label>
+          <p id="guestName" style="margin: 0; padding: 0.5rem; background: var(--hover-clr); border-radius: 6px; color: var(--text-clr);"></p>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 0.5rem; color: var(--secondary-text-clr); font-weight: 500;">Reason for Visit:</label>
+          <p id="guestReason" style="margin: 0; padding: 1rem; background: var(--hover-clr); border-radius: 6px; color: var(--text-clr); white-space: pre-wrap; word-wrap: break-word; min-height: 100px; max-height: 300px; overflow-y: auto;"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function openExportModal() {
       document.getElementById('exportModal').style.display = 'flex';
@@ -727,6 +758,14 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
       closeModal('exportModal');
     }
 
+    // Show guest reason modal
+    function showGuestReasonModal(guestName, guestReason) {
+      document.getElementById('guestName').textContent = guestName;
+      document.getElementById('guestReason').textContent = guestReason || 'No reason provided.';
+      document.getElementById('guestReasonModal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+
     // Close modal when clicking outside
     window.onclick = function(event) {
       if (event.target.className === 'modal') {
@@ -741,6 +780,15 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         img.onerror = function() {
           this.src = '../../buildings/default.png';
         };
+      });
+
+      // Add click handlers for guest rows
+      document.querySelectorAll('tr.guest-row').forEach(row => {
+        row.addEventListener('click', function() {
+          const guestName = this.getAttribute('data-guest-name') || 'Unknown Guest';
+          const guestReason = this.getAttribute('data-guest-reason') || 'No reason provided.';
+          showGuestReasonModal(guestName, guestReason);
+        });
       });
     });
   </script>

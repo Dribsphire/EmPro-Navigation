@@ -34,9 +34,21 @@ class RouteFinder {
             
             const geojson = await response.json();
             
-            // Extract only footwalk features
+            // Extract footwalk and hidden footwalk features
+            // Include features that have 'footwalk' or 'hidden_footwalk' properties
             const footwalkFeatures = geojson.features.filter(
-                feature => feature.properties && feature.properties.footwalk !== undefined
+                feature => {
+                    if (!feature.properties) return false;
+                    // Check for footwalk property (can be any truthy value or exists)
+                    const hasFootwalk = feature.properties.hasOwnProperty('footwalk') || 
+                                       feature.properties.footwalk !== undefined;
+                    // Check for hidden_footwalk property (can be any truthy value or exists)
+                    const hasHiddenFootwalk = feature.properties.hasOwnProperty('hidden_footwalk') || 
+                                            feature.properties.hidden_footwalk !== undefined ||
+                                            feature.properties.hasOwnProperty('hiddenFootwalk') ||
+                                            feature.properties.hiddenFootwalk !== undefined;
+                    return hasFootwalk || hasHiddenFootwalk;
+                }
             );
             
             this.footwalkNetwork = {
@@ -405,9 +417,9 @@ class RouteFinder {
                         'line-cap': 'round'
                     },
                     paint: {
-                        'line-color': '#00bcd4', // Cyan blue
-                        'line-width': 4,
-                        'line-opacity': 0.8
+                        'line-color': '#39ff14', // Neon green
+                        'line-width': 5,
+                        'line-opacity': 0.9
                     }
                 });
                 console.log('Route layer added');
@@ -476,4 +488,3 @@ class RouteFinder {
         }
     }
 }
-
