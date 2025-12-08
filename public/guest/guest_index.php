@@ -111,6 +111,11 @@ body { margin: 0; padding: 0; }
         return isMobileViewport ? VIEW_2D_MOBILE : VIEW_2D_DESKTOP;
     };
 
+    // Cache-buster for geojson so edits reflect immediately
+    const GEOJSON_VERSION = Date.now();
+    const GEOJSON_URL = `../geojson/chmsu.geojson?v=${GEOJSON_VERSION}`;
+    window.geojsonVersion = GEOJSON_VERSION;
+
     const map = new mapboxgl.Map({
         container: 'map', // container ID
         style: 'mapbox://styles/mapbox/standard', // base map style
@@ -579,7 +584,7 @@ body { margin: 0; padding: 0; }
         //add a source layer for the school boundaries 
         map.addSource('chmsu', {
         type: 'geojson',
-        data: '../geojson/chmsu.geojson'
+        data: GEOJSON_URL
         });
         
         map.addLayer({

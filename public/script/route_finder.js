@@ -24,6 +24,10 @@ class RouteFinder {
             } else {
                 geojsonPath = 'geojson/chmsu.geojson';
             }
+
+            // Add cache-busting query so fresh edits load immediately
+            const version = window.geojsonVersion || Date.now();
+            geojsonPath = `${geojsonPath}?v=${version}`;
             
             console.log('Loading footwalk network from:', geojsonPath);
             const response = await fetch(geojsonPath);
