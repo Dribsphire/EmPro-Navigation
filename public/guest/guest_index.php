@@ -213,7 +213,8 @@ body { margin: 0; padding: 0; }
 
             const popupHTML = `
                 <div style="padding: 8px 0;">
-                    <p style="margin: 0 0 10px 0; font-weight: bold;">${popup}</p>
+                    <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 16px; color: #1f2937;">${name}</h3>
+                    ${popup ? `<p style="margin: 0 0 10px 0; font-size: 13px; color: #6b7280;">${popup}</p>` : ''}
                     <div style="display: flex; gap: 8px; flex-direction: column;">
                         <button class="start-navigation-btn" data-building="${name}" data-office-id="${building.office_id || ''}" style="
                             width: 100%;

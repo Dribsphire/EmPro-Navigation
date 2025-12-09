@@ -36,7 +36,7 @@ class UserLocationTracker {
         statusDiv.style.cssText = `
             position: fixed;
             bottom: 20px;
-            left: 20px;
+            left: 8px;
             background: rgba(17, 18, 26, 0.95);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 12px;
@@ -59,7 +59,7 @@ class UserLocationTracker {
                 animation: pulse 2s infinite;
             "></div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span id="location-status-text" style="color: #f3f4f6; font-size: 14px; font-weight: 600;">Requesting location...</span>
+                <span id="location-status-text" style="color: #f3f4f6; font-size: 14px; font-weight: 600;">Locating..</span>
                 <span id="location-accuracy" style="color: #9ca3af; font-size: 11px;"></span>
             </div>
             <button id="toggle-location-btn" style="
@@ -390,6 +390,7 @@ class UserLocationTracker {
 
     /**
      * Handle location update
+     * Note: Marker creation is disabled - NavigationTracker handles the marker during navigation
      */
     handleLocationUpdate(position) {
         const lat = position.coords.latitude;
@@ -401,16 +402,8 @@ class UserLocationTracker {
 
         this.currentPosition = { lat, lng, accuracy, timestamp };
 
-        // Update marker position or create if it doesn't exist
-        if (this.userMarker) {
-            // Update existing marker position
-            this.userMarker.setLngLat([lng, lat]);
-            console.log('Updated existing marker position');
-        } else {
-            // Create new marker
-            console.log('Creating new marker...');
-            this.createUserMarker(lng, lat);
-        }
+        // Marker creation disabled - NavigationTracker will handle marker during navigation
+        // Only update status UI, don't create marker here
 
         // Update status
         this.updateStatusUI('Location Active', accuracy);
@@ -566,7 +559,7 @@ class UserLocationTracker {
         // ============================================
 
         this.isTracking = false;
-        this.updateStatusUI('Location Tracking Stopped');
+        this.updateStatusUI('Paused');
 
         // Optionally remove marker
         // if (this.userMarker) {
@@ -633,18 +626,54 @@ class UserLocationTracker {
     }
 
     /**
-     * Center map on user location
+     * Center map on user's real-time GPS location
      */
     centerOnUser() {
-        if (this.currentPosition) {
-            this.map.flyTo({
-                center: [this.currentPosition.lng, this.currentPosition.lat],
-                zoom: 18,
-                duration: 1000
-            });
-        } else {
-            this.showNotification('Location not available yet. Please wait...', 'error');
+        if (!navigator.geolocation) {
+            this.showNotification('Geolocation is not supported by your browser.', 'error');
+            return;
         }
+
+        this.showNotification('Getting your location...', 'info');
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0 // Always get fresh GPS position
+        };
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                // Update current position
+                this.currentPosition = { lat, lng, accuracy: position.coords.accuracy };
+                
+                // Center map on real-time GPS location
+                this.map.flyTo({
+                    center: [lng, lat],
+                    zoom: 18,
+                    duration: 1000
+                });
+                
+                console.log('Centered map on real-time GPS location:', { lat, lng });
+            },
+            (error) => {
+                console.error('Error getting GPS position:', error);
+                if (this.currentPosition) {
+                    // Fallback to cached position if available
+                    this.map.flyTo({
+                        center: [this.currentPosition.lng, this.currentPosition.lat],
+                        zoom: 18,
+                        duration: 1000
+                    });
+                } else {
+                    this.handleLocationError(error);
+                }
+            },
+            options
+        );
     }
 }
 

@@ -6,6 +6,7 @@ class NavigationTracker {
         this.currentNavigation = null;
         this.watchId = null;
         this.userLocation = null;
+        this.userLocationMarker = null; // Marker for user's real-time GPS location
         this.radiusCircles = new Map(); // Store circle layers
         this.defaultRadius = 50; // Default radius in meters
         this.hasEnteredRadius = false;
@@ -13,15 +14,11 @@ class NavigationTracker {
         this.routeSourceId = 'navigation-route';
         this.routeLayerId = 'navigation-route-layer';
         
-        // ============================================
-        // TESTING MODE: Static location within school
-        // ============================================
-        // Static coordinates for testing route system
-        this.staticLocation = {
+        // Entrance/Starting point coordinates (for route calculation)
+        this.entranceLocation = {
             lat: 10.643401,
             lng: 122.940189
         };
-        // ============================================
         
         // Initialize route finder
         if (typeof RouteFinder !== 'undefined') {
@@ -43,6 +40,175 @@ class NavigationTracker {
             this.map.on('load', () => {
                 this.initializeRadiusCircles();
             });
+        }
+    }
+
+    /**
+     * Initialize navigation state restoration
+     * Should be called after offices are loaded
+     */
+    async initializeRestore() {
+        // Wait a bit for everything to be ready, then restore
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await this.restoreNavigationState();
+    }
+
+    /**
+     * Save navigation state to localStorage
+     */
+    saveNavigationState() {
+        if (this.currentNavigation) {
+            const state = {
+                office: {
+                    name: this.currentNavigation.office.name,
+                    office_id: this.currentNavigation.office.office_id,
+                    lngLat: this.currentNavigation.office.lngLat,
+                    radius: this.currentNavigation.office.radius || this.defaultRadius
+                },
+                logId: this.currentNavigation.logId,
+                startTime: this.currentNavigation.startTime.toISOString(),
+                radius: this.currentNavigation.radius,
+                hasEnteredRadius: this.hasEnteredRadius
+            };
+            localStorage.setItem('activeNavigation', JSON.stringify(state));
+            console.log('Navigation state saved to localStorage');
+        }
+    }
+
+    /**
+     * Clear navigation state from localStorage
+     */
+    clearNavigationState() {
+        localStorage.removeItem('activeNavigation');
+        console.log('Navigation state cleared from localStorage');
+    }
+
+    /**
+     * Restore navigation state from localStorage
+     */
+    async restoreNavigationState() {
+        try {
+            const savedState = localStorage.getItem('activeNavigation');
+            if (!savedState) {
+                return; // No saved state
+            }
+
+            const state = JSON.parse(savedState);
+            console.log('Restoring navigation state:', state);
+
+            // Find the office in the current offices list
+            const office = this.offices.find(o => 
+                (o.office_id && o.office_id == state.office.office_id) ||
+                (o.name === state.office.name)
+            );
+
+            if (!office) {
+                console.warn('Office not found for restored navigation, clearing state');
+                this.clearNavigationState();
+                return;
+            }
+
+            // Restore navigation state
+            this.currentNavigation = {
+                office: office,
+                logId: state.logId,
+                startTime: new Date(state.startTime),
+                radius: state.radius
+            };
+            this.hasEnteredRadius = state.hasEnteredRadius || false;
+
+            // Restore route (wait for route finder to be ready)
+            const [officeLng, officeLat] = office.lngLat;
+            const entranceLat = this.entranceLocation.lat;
+            const entranceLng = this.entranceLocation.lng;
+
+            if (this.routeFinder) {
+                // Wait for footwalk network to load if not already loaded
+                if (!this.routeFinder.footwalkNetwork) {
+                    console.log('Waiting for footwalk network to load...');
+                    await this.routeFinder.loadFootwalkNetwork();
+                }
+                console.log('Restoring route from entrance to office...');
+                await this.routeFinder.updateRoute(entranceLng, entranceLat, officeLng, officeLat);
+            }
+
+            // Highlight the target office radius
+            this.highlightRadius(office);
+
+            // Restore navigation status UI
+            this.showNavigationStatus(office);
+
+            // Restore map view centered on user's location with specified bearing, pitch, and zoom
+            const restoreMapView = (userLat, userLng) => {
+                this.map.flyTo({
+                    center: [userLng, userLat], // Center on user's location
+                    bearing: -149.60,
+                    pitch: 39.10,
+                    zoom: 18.58,
+                    duration: 1000,
+                    essential: true
+                });
+                console.log('Restored map view: centered on user location', [userLng, userLat]);
+            };
+
+            // Restart GPS tracking
+            if (navigator.geolocation) {
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                };
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        console.log('Restored GPS position:', position.coords);
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        this.userLocation = {
+                            lat: userLat,
+                            lng: userLng
+                        };
+                        
+                        // Create user location marker
+                        this.updateUserLocationMarker(userLat, userLng);
+                        
+                        // Restore map view centered on user's location
+                        restoreMapView(userLat, userLng);
+                        
+                        this.handleLocationUpdate(position);
+
+                        // Start watching position
+                        this.watchId = navigator.geolocation.watchPosition(
+                            (position) => {
+                                this.handleLocationUpdate(position);
+                            },
+                            (error) => this.handleLocationError(error),
+                            options
+                        );
+                    },
+                    (error) => {
+                        console.error('Error getting GPS position for restored navigation:', error);
+                        // If GPS fails, try to use saved userLocation or fallback
+                        if (this.userLocation) {
+                            restoreMapView(this.userLocation.lat, this.userLocation.lng);
+                        }
+                        // Still try to start watching
+                        this.watchId = navigator.geolocation.watchPosition(
+                            (position) => {
+                                this.handleLocationUpdate(position);
+                            },
+                            (error) => this.handleLocationError(error),
+                            options
+                        );
+                    },
+                    options
+                );
+            }
+
+            console.log('Navigation state restored successfully');
+        } catch (error) {
+            console.error('Error restoring navigation state:', error);
+            this.clearNavigationState();
         }
     }
 
@@ -161,20 +327,29 @@ class NavigationTracker {
             return;
         }
         
-        // Stop any existing navigation
+        // Check if there's an active navigation to a different office
+        if (this.currentNavigation) {
+            const currentOffice = this.currentNavigation.office;
+            const isSameOffice = (currentOffice.office_id && currentOffice.office_id == office.office_id) ||
+                                (currentOffice.name === office.name);
+            
+            if (!isSameOffice) {
+                // Show confirmation modal before canceling current navigation
+                const confirmed = await this.showCancelNavigationModal(currentOffice.name, office.name);
+                if (!confirmed) {
+                    console.log('User cancelled navigation switch');
+                    return; // User cancelled, don't start new navigation
+                }
+            }
+        }
+        
+        // Stop any existing navigation (if confirmed or same office)
         this.stopNavigation();
 
-        // ============================================
-        // GEOLOCATION CHECK (COMMENTED OUT FOR TESTING)
-        // Uncomment when switching back to real-time tracking
-        // ============================================
-        /*
         if (!navigator.geolocation) {
             alert('Geolocation is not supported by your browser.');
             return;
         }
-        */
-        // ============================================
 
         // Get office radius
         const radius = office.radius || this.defaultRadius;
@@ -202,63 +377,17 @@ class NavigationTracker {
 
         this.hasEnteredRadius = false;
 
-        // Request location permission and start tracking
+        // Save navigation state to localStorage for persistence
+        this.saveNavigationState();
+
+        // Request location permission and start tracking with real-time GPS
         const options = {
             enableHighAccuracy: true,
-            timeout: 15000, // Increased to 15 seconds
-            maximumAge: 30000 // Accept cached position up to 30 seconds old
+            timeout: 15000,
+            maximumAge: 0 // Always get fresh GPS position
         };
 
-        // ============================================
-        // TESTING MODE: Using static location
-        // ============================================
-        console.log('TESTING MODE: Using static location', this.staticLocation);
-        const startLat = this.staticLocation.lat;
-        const startLng = this.staticLocation.lng;
-        const [officeLng, officeLat] = office.lngLat;
-        
-        console.log('Starting navigation from:', [startLng, startLat], 'to:', [officeLng, officeLat]);
-        
-        // Calculate and display route
-        if (this.routeFinder) {
-            console.log('Route finder available, calculating route...');
-            this.routeFinder.updateRoute(startLng, startLat, officeLng, officeLat).catch(err => {
-                console.error('Error calculating route:', err);
-            });
-        } else {
-            console.warn('Route finder not initialized');
-        }
-        
-        // Simulate location updates with static location
-        this.userLocation = { lat: startLat, lng: startLng };
-        const mockPosition = {
-            coords: {
-                latitude: startLat,
-                longitude: startLng,
-                accuracy: 10
-            },
-            timestamp: Date.now()
-        };
-        this.handleLocationUpdate(mockPosition);
-        
-        // Set up interval to simulate location updates (for testing distance calculations)
-        this.staticLocationInterval = setInterval(() => {
-            const mockPos = {
-                coords: {
-                    latitude: this.staticLocation.lat,
-                    longitude: this.staticLocation.lng,
-                    accuracy: 10
-                },
-                timestamp: Date.now()
-            };
-            this.handleLocationUpdate(mockPos);
-        }, 3000); // Update every 3 seconds
-        
-        // ============================================
-        // REALTIME TRACKING CODE (COMMENTED OUT)
-        // Uncomment the code below to enable real-time geolocation tracking
-        // ============================================
-        /*
+        // Get initial real GPS position and start navigation
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 try {
@@ -266,19 +395,46 @@ class NavigationTracker {
                     const startLng = position.coords.longitude;
                     const [officeLng, officeLat] = office.lngLat;
                     
-                    console.log('Starting navigation from:', [startLng, startLat], 'to:', [officeLng, officeLat]);
+                    console.log('Starting navigation from real GPS location:', [startLng, startLat], 'to:', [officeLng, officeLat]);
                     
-                    // Calculate and display route
+                    // Update user location
+                    this.userLocation = { lat: startLat, lng: startLng };
+                    
+                    // Create user location marker immediately with real GPS position
+                    console.log('Creating user location marker with real GPS:', startLat, startLng);
+                    this.updateUserLocationMarker(startLat, startLng);
+                    
+                    // Calculate and display route from real GPS location to office
                     if (this.routeFinder) {
-                        console.log('Route finder available, calculating route...');
+                        console.log('Route finder available, calculating route from real GPS location...');
                         await this.routeFinder.updateRoute(startLng, startLat, officeLng, officeLat);
                     } else {
                         console.warn('Route finder not initialized');
                     }
                     
-                    // Start watching position
+                    // Update map view centered on user's real GPS location
+                    const updateMapView = (userLat, userLng) => {
+                        this.map.flyTo({
+                            center: [userLng, userLat],
+                            bearing: -149.60,
+                            pitch: 39.10,
+                            zoom: 18.58,
+                            duration: 1000,
+                            essential: true
+                        });
+                        console.log('Map view updated: centered on real GPS location', [userLng, userLat]);
+                    };
+                    updateMapView(startLat, startLng);
+                    
+                    // Handle initial location update (this will update the marker position)
+                    this.handleLocationUpdate(position);
+                    
+                    // Start watching position for real-time updates
                     this.watchId = navigator.geolocation.watchPosition(
-                        (position) => this.handleLocationUpdate(position),
+                        (position) => {
+                            console.log('Real GPS position update:', position.coords);
+                            this.handleLocationUpdate(position);
+                        },
                         (error) => this.handleLocationError(error),
                         options
                     );
@@ -286,29 +442,35 @@ class NavigationTracker {
                     console.error('Error in navigation start callback:', error);
                     // Still start watching even if route calculation fails
                     this.watchId = navigator.geolocation.watchPosition(
-                        (position) => this.handleLocationUpdate(position),
+                        (position) => {
+                            console.log('Real GPS position update:', position.coords);
+                            this.handleLocationUpdate(position);
+                        },
                         (error) => this.handleLocationError(error),
                         options
                     );
                 }
             },
             (error) => {
-                console.error('Error getting initial position:', error);
+                console.error('Error getting initial real GPS position:', error);
                 this.handleLocationError(error);
-                // Still start watching even if initial position fails
+                // Still try to start watching even if initial position fails
                 this.watchId = navigator.geolocation.watchPosition(
-                    (position) => this.handleLocationUpdate(position),
+                    (position) => {
+                        console.log('Real GPS position update:', position.coords);
+                        this.handleLocationUpdate(position);
+                    },
                     (error) => this.handleLocationError(error),
                     options
                 );
             },
             options
         );
-        */
-        // ============================================
 
         // Show navigation status
         this.showNavigationStatus(office);
+        
+        // Note: Map view will be updated in the GPS callback with real-time location
     }
 
     /**
@@ -320,24 +482,20 @@ class NavigationTracker {
             this.watchId = null;
         }
 
-// Clear static location interval if in testing mode
-if (this.staticLocationInterval) {
-    clearInterval(this.staticLocationInterval);
-    this.staticLocationInterval = null;
-}
+        // Remove user location marker
+        this.removeUserLocationMarker();
 
-// Remove route from map - use RouteFinder only
-if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
-    this.routeFinder.removeRoute();
-}
-// Also remove NavigationTracker's route if it exists (for cleanup)
-if (this.map.getLayer(this.routeLayerId)) {
-    this.map.removeLayer(this.routeLayerId);
-}
-if (this.map.getSource(this.routeSourceId)) {
-    this.map.removeSource(this.routeSourceId);
-}
-
+        // Remove route from map - use RouteFinder only
+        if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
+            this.routeFinder.removeRoute();
+        }
+        // Also remove NavigationTracker's route if it exists (for cleanup)
+        if (this.map.getLayer(this.routeLayerId)) {
+            this.map.removeLayer(this.routeLayerId);
+        }
+        if (this.map.getSource(this.routeSourceId)) {
+            this.map.removeSource(this.routeSourceId);
+        }
 
         if (this.currentNavigation) {
             this.logNavigationEnd(this.currentNavigation.logId, this.hasEnteredRadius);
@@ -348,6 +506,206 @@ if (this.map.getSource(this.routeSourceId)) {
 
         this.hasEnteredRadius = false;
         this.lastRouteUpdate = null;
+
+        // Clear navigation state from localStorage
+        this.clearNavigationState();
+    }
+
+    /**
+     * Create or update user location marker for real-time GPS position
+     */
+    updateUserLocationMarker(lat, lng) {
+        // Determine marker image path
+        const currentPath = window.location.pathname;
+        let markerPath;
+        if (currentPath.includes('/student/') || currentPath.includes('/guest/')) {
+            markerPath = '../icons/default_marker.png';
+        } else if (currentPath.includes('/admin/')) {
+            markerPath = '../../icons/default_marker.png';
+        } else {
+            markerPath = 'icons/default_marker.png';
+        }
+        
+        if (!this.userLocationMarker) {
+            // Create marker element container
+            const el = document.createElement('div');
+            el.className = 'navigation-user-location-marker';
+            el.style.cssText = `
+                position: relative;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                cursor: pointer;
+            `;
+            
+            // Add animation styles if not already added
+            if (!document.getElementById('navigation-user-location-animations')) {
+                const animStyle = document.createElement('style');
+                animStyle.id = 'navigation-user-location-animations';
+                animStyle.textContent = `
+                    @keyframes userLocationPulse {
+                        0%, 100% {
+                            transform: scale(1);
+                        }
+                        50% {
+                            transform: scale(1.15);
+                        }
+                    }
+                    @keyframes userLocationRing {
+                        0% {
+                            transform: translate(-50%, -50%) scale(0.8);
+                            opacity: 0.6;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) scale(1.5);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(animStyle);
+            }
+            
+            // Add pulsing ring effect around the marker (add before img so it's behind)
+            const ring = document.createElement('div');
+            ring.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                border: 2px solid #3b82f6;
+                opacity: 0.4;
+                animation: userLocationRing 2s infinite;
+                pointer-events: none;
+                z-index: 1;
+            `;
+            el.appendChild(ring);
+            
+            // Use img tag for better reliability
+            const img = document.createElement('img');
+            img.src = markerPath;
+            img.alt = 'Your Location';
+            img.style.cssText = `
+                width: 40px;
+                height: 40px;
+                display: block;
+                cursor: pointer;
+                animation: userLocationPulse 2s infinite;
+                filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+                position: relative;
+                z-index: 2;
+                object-fit: contain;
+            `;
+            
+            // Handle image load error
+            img.onerror = () => {
+                console.error('Failed to load marker image from:', markerPath);
+                // Try alternative paths
+                const altPaths = [
+                    '../icons/default_marker.png',
+                    '../../icons/default_marker.png',
+                    'icons/default_marker.png',
+                    '/icons/default_marker.png'
+                ];
+                
+                let pathIndex = 0;
+                const tryNextPath = () => {
+                    if (pathIndex < altPaths.length) {
+                        const altPath = altPaths[pathIndex++];
+                        console.log('Trying alternative path:', altPath);
+                        img.src = altPath;
+                    } else {
+                        // Fallback to colored circle if all paths fail
+                        console.warn('All image paths failed, using fallback marker');
+                        img.style.display = 'none';
+                        el.style.cssText = `
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #3b82f6;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                            cursor: pointer;
+                        `;
+                    }
+                };
+                
+                img.onerror = tryNextPath;
+                tryNextPath();
+            };
+            
+            img.onload = () => {
+                console.log('✓ Marker image loaded successfully from:', img.src);
+            };
+            
+            // Append img to el (ring is already appended)
+            el.appendChild(img);
+            
+            // Create popup
+            const popup = new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`
+                    <div style="padding: 8px; text-align: center;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Your Location</div>
+                        <div style="font-size: 12px; color: #666;">Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}</div>
+                    </div>
+                `);
+            
+            // Create marker with anchor at bottom center
+            this.userLocationMarker = new mapboxgl.Marker({
+                element: el,
+                anchor: 'bottom'
+            })
+                .setLngLat([lng, lat])
+                .setPopup(popup)
+                .addTo(this.map);
+            
+            console.log('✓ User location marker created and added to map at:', lng, lat);
+            
+            // Verify marker is visible
+            setTimeout(() => {
+                if (this.userLocationMarker && this.userLocationMarker.getElement()) {
+                    const markerEl = this.userLocationMarker.getElement();
+                    const rect = markerEl.getBoundingClientRect();
+                    console.log('Marker element bounds:', rect);
+                    if (rect.width === 0 || rect.height === 0) {
+                        console.warn('Marker element has zero dimensions!');
+                        markerEl.style.display = 'block';
+                        markerEl.style.visibility = 'visible';
+                    } else {
+                        console.log('✓ Marker is visible on map');
+                    }
+                }
+            }, 500);
+        } else {
+            // Update existing marker position
+            this.userLocationMarker.setLngLat([lng, lat]);
+            
+            // Update popup content
+            const popup = new mapboxgl.Popup({ offset: 25 })
+                .setHTML(`
+                    <div style="padding: 8px; text-align: center;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Your Location</div>
+                        <div style="font-size: 12px; color: #666;">Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}</div>
+                    </div>
+                `);
+            this.userLocationMarker.setPopup(popup);
+            console.log('User location marker updated to:', lng, lat);
+        }
+    }
+
+    /**
+     * Remove user location marker
+     */
+    removeUserLocationMarker() {
+        if (this.userLocationMarker) {
+            this.userLocationMarker.remove();
+            this.userLocationMarker = null;
+            console.log('User location marker removed');
+        }
     }
 
     /**
@@ -359,6 +717,9 @@ if (this.map.getSource(this.routeSourceId)) {
         const accuracy = position.coords.accuracy;
 
         this.userLocation = { lat, lng };
+
+        // Update user location marker with real-time GPS position
+        this.updateUserLocationMarker(lat, lng);
 
         if (!this.currentNavigation) return;
 
@@ -388,6 +749,8 @@ if (this.map.getSource(this.routeSourceId)) {
         if (!this.hasEnteredRadius && distance <= this.currentNavigation.radius) {
             this.hasEnteredRadius = true;
             this.onEnterRadius(office, distance);
+            // Update saved state when radius is entered
+            this.saveNavigationState();
         }
     }
 
@@ -425,6 +788,18 @@ if (this.map.getSource(this.routeSourceId)) {
         
         // Log that user reached the destination
         this.logNavigationReached(office);
+        
+        // Automatically stop navigation after a short delay (3 seconds)
+        // This gives the user time to see the notification and understand they've arrived
+        setTimeout(() => {
+            if (this.currentNavigation && this.hasEnteredRadius) {
+                console.log('Auto-stopping navigation after reaching destination');
+                this.stopNavigation();
+                
+                // Show a follow-up notification
+                this.showNotification('Navigation completed!', 'success');
+            }
+        }, 3000); // 3 second delay
     }
 
     /**
@@ -563,6 +938,154 @@ if (this.map.getSource(this.routeSourceId)) {
         if (statusDiv) {
             statusDiv.remove();
         }
+    }
+
+    /**
+     * Show confirmation modal for canceling current navigation
+     * @param {string} currentOfficeName - Name of currently navigating office
+     * @param {string} newOfficeName - Name of new office to navigate to
+     * @returns {Promise<boolean>} - Returns true if user confirms, false if cancelled
+     */
+    showCancelNavigationModal(currentOfficeName, newOfficeName) {
+        return new Promise((resolve) => {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'cancel-navigation-modal-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.2s ease;
+            `;
+
+            // Create modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 400px;
+                width: 90%;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                animation: slideUp 0.3s ease;
+                font-family: 'Poppins', Arial, sans-serif;
+            `;
+
+            modal.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h2 style="margin: 0 0 12px 0; font-size: 20px; color: #1f2937; font-weight: 600;">
+                        Cancel Current Navigation?
+                    </h2>
+                    <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.5;">
+                        You are currently navigating to <strong style="color: #1f2937;">${currentOfficeName}</strong>.
+                        Do you want to cancel this navigation and start navigating to <strong style="color: #1f2937;">${newOfficeName}</strong> instead?
+                    </p>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button id="cancel-nav-cancel-btn" style="
+                        background: #f3f4f6;
+                        color: #374151;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: background 0.2s;
+                    " onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+                        Keep Current
+                    </button>
+                    <button id="cancel-nav-confirm-btn" style="
+                        background: #ef4444;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: background 0.2s;
+                    " onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                        Cancel & Switch
+                    </button>
+                </div>
+            `;
+
+            // Add animations
+            if (!document.getElementById('modal-animations')) {
+                const style = document.createElement('style');
+                style.id = 'modal-animations';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes slideUp {
+                        from {
+                            transform: translateY(20px);
+                            opacity: 0;
+                        }
+                        to {
+                            transform: translateY(0);
+                            opacity: 1;
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Handle cancel button (keep current navigation)
+            document.getElementById('cancel-nav-cancel-btn').addEventListener('click', () => {
+                overlay.style.animation = 'fadeIn 0.2s ease reverse';
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+                resolve(false);
+            });
+
+            // Handle confirm button (cancel current and switch)
+            document.getElementById('cancel-nav-confirm-btn').addEventListener('click', () => {
+                overlay.style.animation = 'fadeIn 0.2s ease reverse';
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+                resolve(true);
+            });
+
+            // Close on overlay click (outside modal)
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.style.animation = 'fadeIn 0.2s ease reverse';
+                    setTimeout(() => {
+                        overlay.remove();
+                    }, 200);
+                    resolve(false);
+                }
+            });
+
+            // Close on Escape key
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.style.animation = 'fadeIn 0.2s ease reverse';
+                    setTimeout(() => {
+                        overlay.remove();
+                    }, 200);
+                    document.removeEventListener('keydown', handleEscape);
+                    resolve(false);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        });
     }
 
     /**
