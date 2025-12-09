@@ -11,34 +11,81 @@
     const CHECK_INTERVAL = 5000; // Check every 5 seconds
     const REAPPEAR_DELAY = 30000; // Show again after 30 seconds if dismissed but alert still active
     const API_ENDPOINT = '../../api/check_drill_alert.php';
+    const SOUND_INTERVAL = 2000; // Play sound every 2 seconds while alert is active
     let lastAlertId = null; // Track last shown alert to avoid duplicate notifications
     let isDismissed = false; // Track if user dismissed the alert
     let dismissTimer = null; // Timer to show alert again after dismissal
+    let soundInterval = null; // Interval for looping alert sound
+    let audioContext = null; // Shared audio context for better performance
+
+    // Initialize audio context (reuse for better performance)
+    function getAudioContext() {
+        if (!audioContext) {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (error) {
+                console.log('Could not create audio context:', error);
+                return null;
+            }
+        }
+        // Resume audio context if suspended (required for autoplay policies)
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(err => {
+                console.log('Could not resume audio context:', err);
+            });
+        }
+        return audioContext;
+    }
 
     // Create alert sound using Web Audio API
     function playAlertSound() {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
         try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const oscillator = ctx.createOscillator();
+            const gainNode = ctx.createGain();
 
             oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(ctx.destination);
 
-            // Create a beeping alarm sound pattern
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.3);
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+            // Create a beeping alarm sound pattern (more urgent)
+            oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+            oscillator.frequency.setValueAtTime(600, ctx.currentTime + 0.1);
+            oscillator.frequency.setValueAtTime(800, ctx.currentTime + 0.2);
+            oscillator.frequency.setValueAtTime(600, ctx.currentTime + 0.3);
+            oscillator.frequency.setValueAtTime(800, ctx.currentTime + 0.4);
 
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            // Set volume (0.3 = 30% volume)
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
 
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.5);
         } catch (error) {
             console.log('Could not play alert sound:', error);
+        }
+    }
+
+    // Start looping alert sound
+    function startAlertSound() {
+        // Stop any existing sound loop
+        stopAlertSound();
+        
+        // Play sound immediately
+        playAlertSound();
+        
+        // Then loop every SOUND_INTERVAL milliseconds
+        soundInterval = setInterval(() => {
+            playAlertSound();
+        }, SOUND_INTERVAL);
+    }
+
+    // Stop looping alert sound
+    function stopAlertSound() {
+        if (soundInterval) {
+            clearInterval(soundInterval);
+            soundInterval = null;
         }
     }
 
@@ -118,6 +165,8 @@
                 if (modal) {
                     modal.style.display = 'none';
                     isDismissed = true;
+                    // DO NOT stop sound - it should continue even if modal is dismissed
+                    // Sound will only stop when admin ends the alert
                     
                     // Set timer to show again after delay if alert is still active
                     if (dismissTimer) {
@@ -138,6 +187,8 @@
                 if (e.target === modal) {
                     modal.style.display = 'none';
                     isDismissed = true;
+                    // DO NOT stop sound - it should continue even if modal is dismissed
+                    // Sound will only stop when admin ends the alert
                     
                     // Set timer to show again after delay if alert is still active
                     if (dismissTimer) {
@@ -173,10 +224,21 @@
             modal.style.display = 'flex';
             isDismissed = false; // Reset dismissal status for new alerts
 
-            // Play sound and vibration only for new alerts
+            // Start/continue looping sound whenever alert is active
+            // Sound should continue even if user dismisses the modal
             if (isNewAlert) {
-                playAlertSound();
+                startAlertSound();
                 triggerVibration();
+            } else {
+                // Ensure sound continues if it was stopped
+                if (!soundInterval) {
+                    startAlertSound();
+                }
+            }
+        } else {
+            // Even if modal is dismissed, keep sound playing if alert is still active
+            if (!soundInterval) {
+                startAlertSound();
             }
         }
     }
@@ -187,6 +249,8 @@
         if (modal) {
             modal.style.display = 'none';
         }
+        // Note: Sound is NOT stopped here - it should only stop when admin ends the alert
+        // Sound stopping is handled in checkForAlerts() when no alert is found
     }
 
     // Check for active alerts
@@ -222,15 +286,22 @@
                     // Show alert if not dismissed, or if it's a new alert
                     if (!isDismissed) {
                         showAlert(data.alert, isNewAlert);
+                    } else {
+                        // Alert is dismissed but still active - ensure sound continues
+                        if (!soundInterval) {
+                            startAlertSound();
+                        }
                     }
                 } else {
-                    // No active alert
+                    // No active alert - admin ended it
                     lastAlertId = null;
                     isDismissed = false; // Reset dismissal when alert ends
                     if (dismissTimer) {
                         clearTimeout(dismissTimer);
                         dismissTimer = null;
                     }
+                    // Stop sound when alert is ended by admin
+                    stopAlertSound();
                     hideAlert();
                 }
             }
