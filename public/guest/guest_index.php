@@ -73,6 +73,7 @@ body { margin: 0; padding: 0; }
 <script src="../script/route_finder.js"></script>
 <script src="../script/navigation_tracker.js"></script>
 <script src="../script/realtime_office_sync.js"></script>
+<script src="../script/drill_alert_popup.js"></script>
 <script src="../script/user_location_tracker.js"></script>
 <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiZHJpYnNwaGlyZSIsImEiOiJjbWllamJrdzEwM2ZrM3FwczFyY2h5cGRwIn0.SdWyL8hhdYbwMvEQ6wsaAQ';

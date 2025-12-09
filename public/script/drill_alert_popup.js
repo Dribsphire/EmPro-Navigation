@@ -1,7 +1,8 @@
 /**
  * Drill Alert Popup System
  * This script checks for active drill alerts and displays a popup modal
- * on all student pages. The popup persists until the admin ends the alert.
+ * on all student and guest pages. The popup persists until the admin ends the alert.
+ * When dismissed, it automatically starts navigation to the safe zone (field).
  */
 
 (function() {
@@ -101,6 +102,134 @@
         }
     }
 
+    // Start navigation to safe zone (field) when drill alert appears
+    // This is called immediately when alert is shown, so route is ready when user clicks X
+    function startNavigationToSafeZone() {
+        // Safe zone coordinates from geojson (field center point)
+        // Using the safe_zone point: [122.93940893612802, 10.643069956349777]
+        // Format: [longitude, latitude] for Mapbox
+        const safeZoneCoordinates = [122.93940893612802, 10.643069956349777];
+        
+        console.log('Drill alert active - starting navigation to safe zone immediately');
+        
+        // Start navigation immediately (no delay)
+        // Check if NavigationTracker is available
+        if (window.navigationTracker && typeof window.navigationTracker.startNavigation === 'function') {
+            // Try to find "Field" or "Safe Zone" office in the offices list
+            // First, try to get it from allBuildingMarkers or offices
+            let safeZoneOffice = null;
+            
+            // Check if there's a "Field" office in the offices
+            if (window.navigationTracker.offices) {
+                safeZoneOffice = window.navigationTracker.offices.find(office => 
+                    office.name && (
+                        office.name.toLowerCase().includes('field') || 
+                        office.name.toLowerCase().includes('safe zone') ||
+                        office.name.toLowerCase().includes('evacuation')
+                    )
+                );
+            }
+            
+            // If not found in offices, check allBuildingMarkers
+            if (!safeZoneOffice && window.allBuildingMarkers) {
+                safeZoneOffice = window.allBuildingMarkers.find(building => 
+                    building.name && (
+                        building.name.toLowerCase().includes('field') || 
+                        building.name.toLowerCase().includes('safe zone') ||
+                        building.name.toLowerCase().includes('evacuation')
+                    )
+                );
+            }
+            
+            // If still not found, create a temporary office object for navigation
+            if (!safeZoneOffice) {
+                safeZoneOffice = {
+                    name: 'Safe Zone (Field)',
+                    office_id: null, // Will try to find by name in API
+                    lngLat: safeZoneCoordinates,
+                    radius: 50, // Default radius in meters
+                    description: 'Emergency evacuation safe zone'
+                };
+            }
+            
+            console.log('Starting navigation to safe zone:', safeZoneOffice);
+            
+            try {
+                // Start navigation immediately - route will be calculated in background
+                // The API will try to find office by name if office_id is null
+                window.navigationTracker.startNavigation(safeZoneOffice).catch(error => {
+                    console.warn('Navigation logging failed, but continuing with route display:', error);
+                    // Even if logging fails, still show the route
+                    displayRouteToSafeZone(safeZoneCoordinates);
+                });
+                console.log('Navigation to safe zone started - route is being calculated');
+            } catch (error) {
+                console.error('Error starting navigation to safe zone:', error);
+                // Fallback: display route without logging
+                displayRouteToSafeZone(safeZoneCoordinates);
+            }
+        } else {
+            console.warn('NavigationTracker not available, displaying route to safe zone');
+            // Fallback: display route without full navigation tracking
+            displayRouteToSafeZone(safeZoneCoordinates);
+        }
+    }
+    
+    // Helper function to display route to safe zone without full navigation logging
+    function displayRouteToSafeZone(coordinates) {
+        // Try to find map instance
+        let mapInstance = null;
+        
+        // Check global map variable
+        if (typeof map !== 'undefined' && map) {
+            mapInstance = map;
+        } else if (window.map) {
+            mapInstance = window.map;
+        } else if (window.navigationTracker && window.navigationTracker.map) {
+            mapInstance = window.navigationTracker.map;
+        }
+        
+        if (mapInstance && typeof mapInstance.flyTo === 'function') {
+            // Center map on safe zone
+            mapInstance.flyTo({
+                center: coordinates,
+                zoom: 18,
+                duration: 2000
+            });
+            
+            // Try to display route if route finder is available
+            if (window.navigationTracker && window.navigationTracker.routeFinder) {
+                // Get user's current location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const userLat = position.coords.latitude;
+                            const userLng = position.coords.longitude;
+                            const [safeLng, safeLat] = coordinates;
+                            
+                            // Calculate and display route
+                            window.navigationTracker.routeFinder.updateRoute(
+                                userLng, 
+                                userLat, 
+                                safeLng, 
+                                safeLat
+                            ).catch(err => {
+                                console.warn('Could not display route to safe zone:', err);
+                            });
+                        },
+                        (error) => {
+                            console.warn('Could not get user location for route:', error);
+                        }
+                    );
+                }
+            }
+            
+            console.log('Map centered on safe zone and route displayed');
+        } else {
+            console.error('Map not available for navigation to safe zone');
+        }
+    }
+
     // Create and inject the alert modal HTML
     function createAlertModal() {
         const modalHTML = `
@@ -167,6 +296,8 @@
                     isDismissed = true;
                     // DO NOT stop sound - it should continue even if modal is dismissed
                     // Sound will only stop when admin ends the alert
+                    // Navigation to safe zone is already running (started when alert appeared)
+                    // Just hide the modal - route should already be visible
                     
                     // Set timer to show again after delay if alert is still active
                     if (dismissTimer) {
@@ -189,6 +320,8 @@
                     isDismissed = true;
                     // DO NOT stop sound - it should continue even if modal is dismissed
                     // Sound will only stop when admin ends the alert
+                    // Navigation to safe zone is already running (started when alert appeared)
+                    // Just hide the modal - route should already be visible
                     
                     // Set timer to show again after delay if alert is still active
                     if (dismissTimer) {
@@ -229,6 +362,11 @@
             if (isNewAlert) {
                 startAlertSound();
                 triggerVibration();
+                
+                // Automatically start navigation to safe zone when alert appears
+                // This ensures route is calculated immediately
+                console.log('New drill alert detected - starting navigation to safe zone immediately');
+                startNavigationToSafeZone();
             } else {
                 // Ensure sound continues if it was stopped
                 if (!soundInterval) {
