@@ -117,6 +117,9 @@ body { margin: 0; padding: 0; }
         style: 'mapbox://styles/mapbox/standard', // base map style
         ...getViewPreset('2d')
     });
+    
+    // Make map globally accessible for sidebar resize
+    window.map = map;
 
     const toggle3dBtn = document.getElementById('toggle-3d');
     let is3DEnabled = false;
@@ -406,12 +409,12 @@ body { margin: 0; padding: 0; }
             userLocationTracker = new UserLocationTracker(map);
             window.userLocationTracker = userLocationTracker;
             
-            // Auto-start tracking after a short delay
+            // Auto-start tracking immediately to show user icon right after login
             setTimeout(() => {
                 if (userLocationTracker) {
                     userLocationTracker.startTracking();
                 }
-            }, 1500);
+            }, 300); // Reduced delay for immediate visibility
             
             // Add center button handler
             const centerBtn = document.getElementById('center-user-location');

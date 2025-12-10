@@ -157,6 +157,16 @@ $sectionCode = $student['section_code'] ?: 'N/A';
                             <i class="fas fa-edit"></i>
                         </button>
                     </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <b style="color:orange;">Password: </b>
+                        <span id="passwordDisplay">••••••••</span>
+                        <button onclick="showPasswordViewModal()" style="background: none; border: none; color: #818cf8; cursor: pointer; padding: 5px;" title="View Password">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="openChangePasswordModal()" style="background: none; border: none; color: #818cf8; cursor: pointer; padding: 5px;" title="Change Password">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
                     <div>
                         <b style="color:orange;">School ID: </b><?= htmlspecialchars($student['school_id']); ?>
                     </div>
@@ -205,6 +215,120 @@ $sectionCode = $student['section_code'] ?: 'N/A';
                 </div>
                 
             
+            </div>
+        </div>
+
+        <!-- View Password Confirmation Modal -->
+        <div id="viewPasswordConfirmModal" class="modal" style="display: none;">
+            <div class="modal-content" style="background: var(--primary-bg); border: 1px solid var(--accent-bg); border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--primary-color); margin: 0; font-size: 1.2rem;">View Password?</h3>
+                    <button onclick="closeViewPasswordConfirm()" style="background: none; border: none; color: var(--primary-color); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <p style="color: var(--secondary-color); margin-bottom: 1.5rem; line-height: 1.6;">
+                    Are you sure you want to view your password? Make sure no one is watching your screen. You will need to enter your current password to verify your identity.
+                </p>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closeViewPasswordConfirm()" style="background: var(--secondary-bg); color: var(--primary-color); border: 1px solid var(--accent-bg); padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer;">Cancel</button>
+                    <button type="button" onclick="proceedToViewPassword()" style="background: #4f46e5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600;">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verify Password to View Modal -->
+        <div id="verifyPasswordModal" class="modal" style="display: none;">
+            <div class="modal-content" style="background: var(--primary-bg); border: 1px solid var(--accent-bg); border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--primary-color); margin: 0; font-size: 1.2rem;">Verify Your Identity</h3>
+                    <button onclick="closeVerifyPasswordModal()" style="background: none; border: none; color: var(--primary-color); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <p style="color: var(--secondary-color); margin-bottom: 1.5rem; line-height: 1.6;">
+                    Enter your current password to view it:
+                </p>
+                <form id="verifyPasswordForm">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Current Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="verifyPasswordInput" name="verify_password" required style="width: 100%; padding: 0.75rem 2.5rem 0.75rem 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);">
+                            <button type="button" onclick="toggleVerifyPasswordVisibility()" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--secondary-color); cursor: pointer; padding: 0.25rem; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;" title="Show password">
+                                <i class="fas fa-eye" id="verifyPasswordEyeIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="verifyPasswordErrorMessage" style="color: #ef4444; margin-bottom: 1rem; display: none;"></div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button type="button" onclick="closeVerifyPasswordModal()" style="background: var(--secondary-bg); color: var(--primary-color); border: 1px solid var(--accent-bg); padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="background: #4f46e5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600;">Verify</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Password Visibility Confirmation Modal -->
+        <div id="passwordVisibilityConfirmModal" class="modal" style="display: none;">
+            <div class="modal-content" style="background: var(--primary-bg); border: 1px solid var(--accent-bg); border-radius: 12px; padding: 2rem; max-width: 400px; width: 90%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3 style="color: var(--primary-color); margin: 0; font-size: 1.2rem;">Show Password?</h3>
+                    <button onclick="closePasswordVisibilityConfirm()" style="background: none; border: none; color: var(--primary-color); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <p id="passwordVisibilityConfirmMessage" style="color: var(--secondary-color); margin-bottom: 1.5rem; line-height: 1.6;">
+                    Are you sure you want to show your password? Make sure no one is watching your screen.
+                </p>
+                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                    <button type="button" onclick="closePasswordVisibilityConfirm()" style="background: var(--secondary-bg); color: var(--primary-color); border: 1px solid var(--accent-bg); padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer;">Cancel</button>
+                    <button type="button" onclick="confirmPasswordVisibility()" style="background: #4f46e5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600;">Show Password</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Modal -->
+        <div id="changePasswordModal" class="modal" style="display: none;">
+            <div class="modal-content" style="background: var(--primary-bg); border: 1px solid var(--accent-bg); border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="color: var(--primary-color); margin: 0;">Change Password</h2>
+                    <button onclick="closeChangePasswordModal()" style="background: none; border: none; color: var(--primary-color); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                
+                <form id="changePasswordForm">
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Current Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="currentPasswordInput" name="current_password" required style="width: 100%; padding: 0.75rem 2.5rem 0.75rem 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);">
+                            <button type="button" class="password-toggle-btn" data-input-id="currentPasswordInput" onclick="togglePasswordVisibility('currentPasswordInput', this)" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--secondary-color); cursor: pointer; padding: 0.25rem; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;" title="Show password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">New Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="newPasswordInput" name="new_password" required minlength="8" style="width: 100%; padding: 0.75rem 2.5rem 0.75rem 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);">
+                            <button type="button" class="password-toggle-btn" data-input-id="newPasswordInput" onclick="togglePasswordVisibility('newPasswordInput', this)" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--secondary-color); cursor: pointer; padding: 0.25rem; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;" title="Show password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <p style="color: var(--secondary-color); font-size: 0.85rem; margin-top: 0.5rem;">Must be at least 8 characters long</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="display: block; color: var(--primary-color); margin-bottom: 0.5rem; font-weight: 600;">Confirm New Password</label>
+                        <div style="position: relative;">
+                            <input type="password" id="confirmPasswordInput" name="confirm_password" required minlength="8" style="width: 100%; padding: 0.75rem 2.5rem 0.75rem 0.75rem; border: 1px solid var(--accent-bg); border-radius: 5px; background: var(--secondary-bg); color: var(--primary-color);">
+                            <button type="button" class="password-toggle-btn" data-input-id="confirmPasswordInput" onclick="togglePasswordVisibility('confirmPasswordInput', this)" style="position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--secondary-color); cursor: pointer; padding: 0.25rem; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; width: 2rem; height: 2rem;" title="Show password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="passwordErrorMessage" style="color: #ef4444; margin-bottom: 1rem; display: none;"></div>
+                    <div id="passwordSuccessMessage" style="color: #10b981; margin-bottom: 1rem; display: none;"></div>
+                    
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                        <button type="button" onclick="closeChangePasswordModal()" style="background: var(--secondary-bg); color: var(--primary-color); border: 1px solid var(--accent-bg); padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer;">Cancel</button>
+                        <button type="submit" style="background: #4f46e5; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 5px; cursor: pointer; font-weight: 600;">Change Password</button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -775,6 +899,317 @@ document.getElementById('profileForm').addEventListener('submit', async function
 document.getElementById('editProfileModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeEditModal();
+    }
+});
+
+// Password visibility confirmation state
+let passwordVisibilityConfirmed = {
+    currentPasswordInput: false,
+    newPasswordInput: false,
+    confirmPasswordInput: false
+};
+
+// View Password Functions
+function showPasswordViewModal() {
+    document.getElementById('viewPasswordConfirmModal').style.display = 'flex';
+}
+
+function closeViewPasswordConfirm() {
+    document.getElementById('viewPasswordConfirmModal').style.display = 'none';
+}
+
+function proceedToViewPassword() {
+    closeViewPasswordConfirm();
+    document.getElementById('verifyPasswordModal').style.display = 'flex';
+    document.getElementById('verifyPasswordForm').reset();
+    document.getElementById('verifyPasswordErrorMessage').style.display = 'none';
+    document.getElementById('verifyPasswordInput').focus();
+}
+
+function closeVerifyPasswordModal() {
+    document.getElementById('verifyPasswordModal').style.display = 'none';
+    document.getElementById('verifyPasswordForm').reset();
+    document.getElementById('verifyPasswordErrorMessage').style.display = 'none';
+    // Reset password input type
+    const input = document.getElementById('verifyPasswordInput');
+    if (input) {
+        input.type = 'password';
+    }
+    const icon = document.getElementById('verifyPasswordEyeIcon');
+    if (icon) {
+        icon.className = 'fas fa-eye';
+    }
+}
+
+function toggleVerifyPasswordVisibility() {
+    const input = document.getElementById('verifyPasswordInput');
+    const icon = document.getElementById('verifyPasswordEyeIcon');
+    
+    if (input && icon) {
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fas fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fas fa-eye';
+        }
+    }
+}
+
+// Handle verify password form submission
+document.getElementById('verifyPasswordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const errorDiv = document.getElementById('verifyPasswordErrorMessage');
+    errorDiv.style.display = 'none';
+    
+    const password = document.getElementById('verifyPasswordInput').value;
+    
+    if (!password) {
+        errorDiv.textContent = 'Please enter your password.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    // Verify password by attempting to change it (we'll create a verify endpoint)
+    // For now, we'll use a simple approach - verify and show what they entered
+    try {
+        const response = await fetch('../../api/verify_student_password.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ password: password })
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Password verified - show it to the user
+            closeVerifyPasswordModal();
+            
+            // Show the password in the profile display
+            const passwordDisplay = document.getElementById('passwordDisplay');
+            if (passwordDisplay) {
+                passwordDisplay.textContent = password;
+                passwordDisplay.style.color = '#10b981';
+                
+                // Hide it again after 5 seconds
+                setTimeout(() => {
+                    passwordDisplay.textContent = '••••••••';
+                    passwordDisplay.style.color = '';
+                }, 5000);
+            }
+        } else {
+            errorDiv.textContent = result.message || 'Incorrect password. Please try again.';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+        console.error('Error verifying password:', error);
+    }
+});
+
+// Close modals when clicking outside
+document.getElementById('viewPasswordConfirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeViewPasswordConfirm();
+    }
+});
+
+document.getElementById('verifyPasswordModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeVerifyPasswordModal();
+    }
+});
+
+// Confirmation Modal for Password Visibility
+function showPasswordVisibilityConfirm(inputId, button) {
+    const confirmModal = document.getElementById('passwordVisibilityConfirmModal');
+    const confirmMessage = document.getElementById('passwordVisibilityConfirmMessage');
+    
+    // Store which input we're confirming for
+    confirmModal.dataset.inputId = inputId;
+    confirmModal.dataset.button = button ? 'true' : 'false';
+    
+    if (confirmMessage) {
+        confirmMessage.textContent = 'Are you sure you want to show your password? Make sure no one is watching your screen.';
+    }
+    
+    confirmModal.style.display = 'flex';
+}
+
+function confirmPasswordVisibility() {
+    const confirmModal = document.getElementById('passwordVisibilityConfirmModal');
+    const inputId = confirmModal.dataset.inputId;
+    
+    if (inputId) {
+        passwordVisibilityConfirmed[inputId] = true;
+        const button = document.querySelector(`button[onclick*="${inputId}"]`);
+        togglePasswordVisibility(inputId, button, true);
+    }
+    
+    closePasswordVisibilityConfirm();
+}
+
+function closePasswordVisibilityConfirm() {
+    document.getElementById('passwordVisibilityConfirmModal').style.display = 'none';
+}
+
+function togglePasswordVisibility(inputId, buttonElement, skipConfirm = false) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    // Check if this input is inside the change password modal - if so, skip confirmation
+    const changePasswordModal = document.getElementById('changePasswordModal');
+    const isInChangePasswordModal = changePasswordModal && changePasswordModal.contains(input);
+    
+    // If not confirmed and not skipping confirm and NOT in change password modal, show confirmation modal
+    if (!skipConfirm && !passwordVisibilityConfirmed[inputId] && !isInChangePasswordModal) {
+        showPasswordVisibilityConfirm(inputId, buttonElement);
+        return;
+    }
+    
+    // Toggle password visibility
+    const button = buttonElement || document.querySelector(`button[onclick*="${inputId}"]`);
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            }
+            button.title = 'Hide password';
+        }
+    } else {
+        input.type = 'password';
+        if (button) {
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.className = 'fas fa-eye';
+            } else {
+                button.innerHTML = '<i class="fas fa-eye"></i>';
+            }
+            button.title = 'Show password';
+        }
+        // Reset confirmation when hiding (only if not in change password modal)
+        if (!isInChangePasswordModal) {
+            passwordVisibilityConfirmed[inputId] = false;
+        }
+    }
+}
+
+// Change Password Modal Functions
+function openChangePasswordModal() {
+    document.getElementById('changePasswordModal').style.display = 'flex';
+    document.getElementById('changePasswordForm').reset();
+    document.getElementById('passwordErrorMessage').style.display = 'none';
+    document.getElementById('passwordSuccessMessage').style.display = 'none';
+    
+    // Reset password visibility states
+    passwordVisibilityConfirmed = {
+        currentPasswordInput: false,
+        newPasswordInput: false,
+        confirmPasswordInput: false
+    };
+    
+    // Reset all password inputs to password type and reset eye icons
+    ['currentPasswordInput', 'newPasswordInput', 'confirmPasswordInput'].forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.type = 'password';
+        }
+        const button = document.querySelector(`[onclick*="${inputId}"]`);
+        if (button) {
+            button.innerHTML = '<i class="fas fa-eye"></i>';
+            button.title = 'Show password';
+        }
+    });
+}
+
+function closeChangePasswordModal() {
+    document.getElementById('changePasswordModal').style.display = 'none';
+    document.getElementById('changePasswordForm').reset();
+    document.getElementById('passwordErrorMessage').style.display = 'none';
+    document.getElementById('passwordSuccessMessage').style.display = 'none';
+}
+
+// Handle password change form submission
+document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const errorDiv = document.getElementById('passwordErrorMessage');
+    const successDiv = document.getElementById('passwordSuccessMessage');
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+    
+    const currentPassword = document.getElementById('currentPasswordInput').value;
+    const newPassword = document.getElementById('newPasswordInput').value;
+    const confirmPassword = document.getElementById('confirmPasswordInput').value;
+    
+    // Client-side validation
+    if (newPassword.length < 8) {
+        errorDiv.textContent = 'New password must be at least 8 characters long.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        errorDiv.textContent = 'New password and confirmation password do not match.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('current_password', currentPassword);
+    formData.append('new_password', newPassword);
+    formData.append('confirm_password', confirmPassword);
+    
+    try {
+        const response = await fetch('../../api/change_student_password.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            successDiv.textContent = result.message || 'Password changed successfully!';
+            successDiv.style.display = 'block';
+            
+            // Clear form
+            document.getElementById('changePasswordForm').reset();
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                closeChangePasswordModal();
+            }, 2000);
+        } else {
+            errorDiv.textContent = result.message || 'Failed to change password. Please try again.';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+        console.error('Error changing password:', error);
+    }
+});
+
+// Close password modal when clicking outside
+document.getElementById('changePasswordModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeChangePasswordModal();
+    }
+});
+
+// Close password visibility confirm modal when clicking outside
+document.getElementById('passwordVisibilityConfirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closePasswordVisibilityConfirm();
     }
 });
 </script>

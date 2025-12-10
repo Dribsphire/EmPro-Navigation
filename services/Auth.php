@@ -80,7 +80,7 @@ class Auth {
 
         return [
             'status' => 'success',
-            'redirect' => '/public/admin/admin_index.php',
+            'redirect' => '/Empro-Navigation/public/admin/admin_index.php',
             'debug' => $this->debugLogs
         ];
     }

@@ -482,8 +482,57 @@ class NavigationTracker {
             this.watchId = null;
         }
 
+        // Get current user location before removing marker
+        const currentUserLocation = this.userLocation;
+        
         // Remove user location marker
         this.removeUserLocationMarker();
+        
+        // Show UserLocationTracker marker again when navigation stops
+        // Update it with the real GPS location from navigation instead of static location
+        if (window.userLocationTracker) {
+            // Stop static location interval to prevent it from overriding real GPS location
+            if (window.userLocationTracker.staticLocationInterval) {
+                clearInterval(window.userLocationTracker.staticLocationInterval);
+                window.userLocationTracker.staticLocationInterval = null;
+                console.log('Stopped static location interval');
+            }
+            
+            if (currentUserLocation && currentUserLocation.lat && currentUserLocation.lng) {
+                // Update UserLocationTracker with the real GPS location from navigation
+                console.log('Updating UserLocationTracker with real GPS location:', currentUserLocation);
+                
+                // Update the current position
+                window.userLocationTracker.currentPosition = {
+                    lat: currentUserLocation.lat,
+                    lng: currentUserLocation.lng,
+                    accuracy: 10, // Use a reasonable default accuracy
+                    timestamp: new Date()
+                };
+                
+                // Create or update the marker with real location
+                if (!window.userLocationTracker.userMarker) {
+                    window.userLocationTracker.createUserMarker(currentUserLocation.lng, currentUserLocation.lat);
+                } else {
+                    window.userLocationTracker.userMarker.setLngLat([currentUserLocation.lng, currentUserLocation.lat]);
+                    const markerEl = window.userLocationTracker.userMarker.getElement();
+                    if (markerEl) {
+                        markerEl.style.display = 'block';
+                    }
+                    console.log('UserLocationTracker marker updated to real GPS location:', currentUserLocation);
+                }
+                
+                // Start real GPS tracking instead of static location
+                window.userLocationTracker.startRealGPSTracking();
+            } else if (window.userLocationTracker.userMarker) {
+                // If no location available, just show the existing marker
+                const markerEl = window.userLocationTracker.userMarker.getElement();
+                if (markerEl) {
+                    markerEl.style.display = 'block';
+                    console.log('UserLocationTracker marker shown again after navigation stopped');
+                }
+            }
+        }
 
         // Remove route from map - use RouteFinder only
         if (this.routeFinder && typeof this.routeFinder.removeRoute === "function") {
@@ -654,10 +703,10 @@ class NavigationTracker {
                     </div>
                 `);
             
-            // Create marker with anchor at bottom center
+            // Create marker with anchor at center (ensures icon point aligns with GPS coordinates)
             this.userLocationMarker = new mapboxgl.Marker({
                 element: el,
-                anchor: 'bottom'
+                anchor: 'center'
             })
                 .setLngLat([lng, lat])
                 .setPopup(popup)

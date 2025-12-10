@@ -308,11 +308,11 @@ class UserLocationTracker {
      * Create and add marker element to map
      */
     createMarkerElement(el, popup, lng, lat) {
-        // Create marker with anchor at bottom center (for pin markers, the point should be at the location)
-        // This ensures the pin point aligns with the actual location
+        // Create marker with anchor at center (for pin markers, the point should align with the GPS location)
+        // Using 'center' anchor ensures the icon's point aligns with the actual user location
         this.userMarker = new mapboxgl.Marker({
             element: el,
-            anchor: 'bottom' // Anchor at bottom center so pin point aligns with location
+            anchor: 'center' // Anchor at center so the icon point aligns with GPS coordinates
         })
             .setLngLat([lng, lat])
             .setPopup(popup)
@@ -390,7 +390,8 @@ class UserLocationTracker {
 
     /**
      * Handle location update
-     * Note: Marker creation is disabled - NavigationTracker handles the marker during navigation
+     * Creates and updates user location marker immediately when location is obtained
+     * Hides marker if NavigationTracker is actively navigating
      */
     handleLocationUpdate(position) {
         const lat = position.coords.latitude;
@@ -402,8 +403,33 @@ class UserLocationTracker {
 
         this.currentPosition = { lat, lng, accuracy, timestamp };
 
-        // Marker creation disabled - NavigationTracker will handle marker during navigation
-        // Only update status UI, don't create marker here
+        // Check if NavigationTracker is actively navigating
+        // If so, hide this marker to avoid duplication (NavigationTracker will show its own)
+        const isNavigating = window.navigationTracker && window.navigationTracker.currentNavigation;
+        
+        if (isNavigating) {
+            // Hide marker during active navigation
+            if (this.userMarker) {
+                const markerEl = this.userMarker.getElement();
+                if (markerEl) {
+                    markerEl.style.display = 'none';
+                }
+            }
+        } else {
+            // Show marker when not navigating
+            if (!this.userMarker) {
+                // Create marker for the first time
+                this.createUserMarker(lng, lat);
+            } else {
+                // Update existing marker position and ensure it's visible
+                this.userMarker.setLngLat([lng, lat]);
+                const markerEl = this.userMarker.getElement();
+                if (markerEl) {
+                    markerEl.style.display = 'block';
+                }
+                console.log('User location marker updated to:', lng, lat);
+            }
+        }
 
         // Update status
         this.updateStatusUI('Location Active', accuracy);
@@ -453,16 +479,21 @@ class UserLocationTracker {
 
     /**
      * Start tracking user location
+     * Uses real GPS by default, falls back to static location if GPS unavailable
      */
     startTracking() {
         if (this.isTracking) {
             return;
         }
 
-        // ============================================
-        // TESTING MODE: Using static location
-        // ============================================
-        console.log('TESTING MODE: Using static location', this.staticLocation);
+        // Try real GPS tracking first
+        if (navigator.geolocation) {
+            this.startRealGPSTracking();
+            return;
+        }
+
+        // Fallback to static location if geolocation not supported
+        console.log('Geolocation not supported, using static location', this.staticLocation);
         this.isTracking = true;
         this.updateStatusUI('Location Active', 10);
         
@@ -490,37 +521,47 @@ class UserLocationTracker {
             };
             this.handleLocationUpdate(mockPos);
         }, this.updateInterval);
+    }
+
+    /**
+     * Start real GPS tracking (replaces static location tracking)
+     */
+    startRealGPSTracking() {
+        // Stop static location interval if running
+        if (this.staticLocationInterval) {
+            clearInterval(this.staticLocationInterval);
+            this.staticLocationInterval = null;
+        }
         
-        // ============================================
-        // REALTIME TRACKING CODE (COMMENTED OUT)
-        // Uncomment the code below to enable real-time geolocation tracking
-        // ============================================
-        /*
         if (!navigator.geolocation) {
-            this.updateStatusUI('Geolocation Not Supported');
-            this.showNotification('Geolocation is not supported by your browser.', 'error');
+            console.warn('Geolocation is not supported by your browser.');
             return;
         }
 
+        // If already watching, clear the previous watch
+        if (this.watchId !== null) {
+            navigator.geolocation.clearWatch(this.watchId);
+        }
+
         this.isTracking = true;
-        this.updateStatusUI('Requesting Location...');
+        this.updateStatusUI('Location Active');
 
         const options = {
             enableHighAccuracy: true,
             timeout: 10000,
-            maximumAge: 0
+            maximumAge: 5000 // Accept cached position up to 5 seconds old
         };
 
         // Get initial position
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                console.log('Initial position obtained:', position.coords);
+                console.log('UserLocationTracker: Initial real GPS position obtained:', position.coords);
                 this.handleLocationUpdate(position);
                 
                 // Start watching position for real-time updates
                 this.watchId = navigator.geolocation.watchPosition(
                     (position) => {
-                        console.log('Position update from watch:', position.coords);
+                        console.log('UserLocationTracker: Real GPS position update:', position.coords);
                         this.handleLocationUpdate(position);
                     },
                     (error) => this.handleLocationError(error),
@@ -528,13 +569,11 @@ class UserLocationTracker {
                 );
             },
             (error) => {
-                console.error('Error getting initial position:', error);
+                console.error('UserLocationTracker: Error getting initial real GPS position:', error);
                 this.handleLocationError(error);
             },
             options
         );
-        */
-        // ============================================
     }
 
     /**
@@ -547,16 +586,11 @@ class UserLocationTracker {
             this.staticLocationInterval = null;
         }
         
-        // ============================================
-        // REALTIME TRACKING CODE (COMMENTED OUT)
-        // ============================================
-        /*
+        // Clear real GPS watch if running
         if (this.watchId !== null) {
             navigator.geolocation.clearWatch(this.watchId);
             this.watchId = null;
         }
-        */
-        // ============================================
 
         this.isTracking = false;
         this.updateStatusUI('Paused');

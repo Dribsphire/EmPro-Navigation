@@ -6,7 +6,26 @@ function toggleSidebar(){
   toggleButton.classList.toggle('rotate')
 
   closeAllSubMenus()
+  
+  // Resize map when sidebar toggles to fix UI layout
+  // Wait for CSS transition to complete (300ms as per CSS)
+  setTimeout(() => {
+    resizeMap()
+  }, 350) // Slightly longer than CSS transition (300ms)
 }
+
+// Function to resize map (used by sidebar toggle and window resize)
+function resizeMap() {
+  if (window.map && typeof window.map.resize === 'function') {
+    window.map.resize()
+    console.log('Map resized')
+  }
+}
+
+// Also resize map on window resize events
+window.addEventListener('resize', () => {
+  resizeMap()
+})
 
 function toggleSubMenu(button){
 

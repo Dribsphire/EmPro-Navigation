@@ -527,6 +527,9 @@ body { margin: 0; padding: 0; }
         // Disable telemetry to reduce blocked request errors
         collectResourceTiming: false
     });
+    
+    // Make map globally accessible for sidebar resize
+    window.map = map;
 
     // Check if map is already loaded (sometimes it loads very quickly)
     if (map.loaded()) {
