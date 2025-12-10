@@ -61,7 +61,7 @@ class Auth {
 
             return [
                 'status' => 'denied',
-                'redirect' => '/EmPro-Navigation/public/admin/access_denied.php',
+                'redirect' => '/public/admin/access_denied.php',
                 'debug' => $this->debugLogs
             ];
         }
@@ -80,7 +80,7 @@ class Auth {
 
         return [
             'status' => 'success',
-            'redirect' => '/EmPro-Navigation/public/admin/admin_index.php',
+            'redirect' => '/public/admin/admin_index.php',
             'debug' => $this->debugLogs
         ];
     }
@@ -90,7 +90,7 @@ class Auth {
      */
     public function requireAdmin(): void {
         if (!$this->isAdmin()) {
-            header('Location: /EmPro-Navigation/public/admin_login.php');
+            header('Location: /public/admin_login.php');
             exit();
         }
     }
@@ -125,9 +125,9 @@ class Auth {
 
         // Redirect based on user type
         if ($userType === 'student') {
-            header('Location: /EmPro-Navigation/public/student_guest_login.php');
+            header('Location: /public/student_guest_login.php');
         } else {
-            header('Location: /EmPro-Navigation/public/admin_login.php');
+            header('Location: /public/admin_login.php');
         }
         exit();
     }
