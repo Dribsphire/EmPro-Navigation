@@ -4,8 +4,15 @@ header('Cache-Control: no-cache, no-store, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: 0');
 
-require_once __DIR__ . '/../../services/Auth.php';
+session_start();
 
-$auth = new Auth();
-$auth->logout();
+// Destroy session
+$_SESSION = [];
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_destroy();
+}
+
+// Redirect to login page (using relative path from public/student/)
+header('Location: ../student_guest_login.php');
+exit();
 

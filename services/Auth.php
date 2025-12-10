@@ -124,10 +124,37 @@ class Auth {
         }
 
         // Redirect based on user type
-        if ($userType === 'student') {
-            header('Location: /public/student_guest_login.php');
+        // Get the current script's directory to calculate relative path
+        $currentScript = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
+        
+        // Determine base path
+        // If script is in /EmPro-Navigation/public/student/Logout.php, extract /EmPro-Navigation
+        if (preg_match('#^/([^/]+)/public/#', $currentScript, $matches)) {
+            $projectName = $matches[1];
+            $basePath = '/' . $projectName;
         } else {
-            header('Location: /public/admin_login.php');
+            // Fallback: try to detect from SCRIPT_FILENAME
+            $scriptFile = $_SERVER['SCRIPT_FILENAME'] ?? '';
+            $docRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+            if ($scriptFile && $docRoot) {
+                $relativePath = str_replace($docRoot, '', dirname($scriptFile));
+                $relativePath = str_replace('\\', '/', $relativePath);
+                // Extract project name (e.g., /EmPro-Navigation from /EmPro-Navigation/public/student)
+                if (preg_match('#^/([^/]+)/#', $relativePath, $matches)) {
+                    $basePath = '/' . $matches[1];
+                } else {
+                    $basePath = '/EmPro-Navigation'; // Default fallback
+                }
+            } else {
+                $basePath = '/EmPro-Navigation'; // Default fallback
+            }
+        }
+        
+        // Build redirect URLs
+        if ($userType === 'student' || $userType === 'guest') {
+            header('Location: ' . $basePath . '/public/student_guest_login.php');
+        } else {
+            header('Location: ' . $basePath . '/public/admin_login.php');
         }
         exit();
     }
