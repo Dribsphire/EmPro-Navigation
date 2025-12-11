@@ -1,16 +1,18 @@
 <?php
 class Database {
 
-    //private $host = "localhost";
-    //private $db_name = "empro_navigation";
-    //private $username = "root";
-    //private $password = "";
-
-
     private $host = "localhost";
-    private $db_name = "u719275046_empro_nav";
-    private $username = "u719275046_empro_nav";
-    private $password = "F8m=;lVdxlbd";
+    private $db_name = "empro_navigation";
+    private $username = "root";
+    private $password = "";
+
+
+    //private $host = "localhost";
+    //private $db_name = "u719275046_empro_nav";
+    //private $username = "u719275046_empro_nav";
+    //private $password = "F8m=;lVdxlbd";
+
+    
     public $conn = null;
 
     public function getConnection() {
