@@ -11,8 +11,6 @@ class Database {
     private $db_name = "u719275046_empro_nav";
     private $username = "u719275046_empro_nav";
     private $password = "F8m=;lVdxlbd";
-
-
     public $conn = null;
 
     public function getConnection() {
